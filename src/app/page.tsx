@@ -1,10 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShieldCheck, Volume2, Award, BookOpen, CheckCircle, ArrowRight, User } from 'lucide-react';
+import { ShieldCheck, Volume2, Award, BookOpen, CheckCircle, ArrowRight, User, LogIn } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function LandingPage() {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    }
+    checkAuth();
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 select-none">
       {/* Navigation Bar */}
@@ -13,12 +24,22 @@ export default function LandingPage() {
           <BookOpen className="w-5 h-5 text-blue-400" /> BankerViva
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
-          >
-            <User className="w-3.5 h-3.5" /> Dashboard
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
+            >
+              <User className="w-3.5 h-3.5" /> Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/auth"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
+            >
+              <LogIn className="w-3.5 h-3.5" /> Sign In
+            </Link>
+          )}
+
           <Link
             href="/exam"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition shadow"
