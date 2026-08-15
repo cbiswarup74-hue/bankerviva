@@ -14,10 +14,10 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/auth"
+            href="/dashboard"
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
           >
-            <User className="w-3.5 h-3.5" /> Sign In
+            <User className="w-3.5 h-3.5" /> Dashboard
           </Link>
           <Link
             href="/exam"
