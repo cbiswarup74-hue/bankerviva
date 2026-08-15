@@ -1,87 +1,32 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, CheckCircle, XCircle, AlertCircle, Clock, Award } from 'lucide-react';
+import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Filter } from 'lucide-react';
 import { Question } from '@/types/exam';
 import { speakVivaPrompt, stopSpeech } from '@/lib/speech';
 import { supabase } from '@/lib/supabaseClient';
 import confetti from 'canvas-confetti';
 
-const FALLBACK_QUESTIONS: Question[] = [
-  {
-    id: 'q1',
-    exam_type: 'DRA',
-    module: 'SARFAESI Act & Recovery',
-    difficulty: 'moderate',
-    question_text: 'Under Section 13(2) of the SARFAESI Act, 2002, what is the statutory notice period granted to a defaulting borrower to clear liabilities in full?',
-    audio_script: 'Under Section 13(2) of SARFAESI Act, what is the statutory notice period?',
-    options: { A: '30 Days', B: '45 Days', C: '60 Days', D: '90 Days' },
-    correct_answer: 'C',
-    explanation: 'Section 13(2) provides a 60-day demand window to the borrower before the lender can take physical possession of assets.'
-  },
-  {
-    id: 'q2',
-    exam_type: 'JAIIB_PPB',
-    module: 'RBI Fair Practices Code',
-    difficulty: 'easy',
-    question_text: 'As per RBI Fair Practices Code, between what hours is an authorized recovery agent permitted to contact a borrower?',
-    audio_script: 'What are the permissible calling hours for debt recovery agents?',
-    options: { A: '07:00 to 19:00 hrs', B: '08:00 to 19:00 hrs', C: '09:00 to 20:00 hrs', D: '06:00 to 21:00 hrs' },
-    correct_answer: 'B',
-    explanation: 'RBI guidelines explicitly mandate that recovery communication occur only between 08:00 hrs and 19:00 hrs.'
-  },
-  {
-    id: 'q3',
-    exam_type: 'JAIIB_AFM',
-    module: 'Accounting Standards & Ratios',
-    difficulty: 'hard',
-    question_text: 'What does a Current Ratio of less than 1.0 indicate for a corporate borrower seeking credit facility renewal?',
-    audio_script: 'What does a Current Ratio under 1.0 signify for a corporate credit borrower?',
-    options: {
-      A: 'Negative working capital where current liabilities exceed current assets',
-      B: 'High liquidity and strong debt servicing capacity',
-      C: 'Zero debt-equity exposure',
-      D: 'Optimum buffer for contingent claims'
-    },
-    correct_answer: 'A',
-    explanation: 'A current ratio below 1.0 indicates negative net working capital, signaling short-term liquidity distress.'
-  }
-];
-
 export default function ExamHall() {
-  const [questions, setQuestions] = useState<Question[]>(FALLBACK_QUESTIONS);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedExam, setSelectedExam] = useState<string>('ALL');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(120 * 60); // 120 mins
+  const [timeLeft, setTimeLeft] = useState(120 * 60);
   const [responses, setResponses] = useState<Record<string, 'A' | 'B' | 'C' | 'D' | null>>({});
   const [reviewFlags, setReviewFlags] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [autoRead, setAutoRead] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Anti-Copy, Anti-Right Click & Inspection Key Blocker
+  // Anti-Copy & Shortcut Protection
   useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.ctrlKey &&
-          (e.key === 'c' ||
-            e.key === 'C' ||
-            e.key === 'u' ||
-            e.key === 'U' ||
-            e.key === 's' ||
-            e.key === 'S' ||
-            e.key === 'p' ||
-            e.key === 'P')) ||
-        e.key === 'F12'
-      ) {
+      if ((e.ctrlKey && ['c', 'u', 's', 'p'].includes(e.key.toLowerCase())) || e.key === 'F12') {
         e.preventDefault();
       }
     };
-
-    const handleCopy = (e: ClipboardEvent) => {
-      e.preventDefault();
-    };
+    const handleCopy = (e: ClipboardEvent) => e.preventDefault();
 
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
@@ -94,10 +39,16 @@ export default function ExamHall() {
     };
   }, []);
 
-  // Fetch questions from Supabase if available, otherwise fallback
+  // Fetch Questions dynamically by Exam Filter
   useEffect(() => {
     async function loadQuestions() {
-      const { data, error } = await supabase.from('questions').select('*').limit(100);
+      setLoading(true);
+      let query = supabase.from('questions').select('*').limit(200);
+      if (selectedExam !== 'ALL') {
+        query = query.ilike('exam_type', `%${selectedExam}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && data.length > 0) {
         const mapped: Question[] = data.map((row: any) => ({
           id: row.id,
@@ -116,12 +67,25 @@ export default function ExamHall() {
           explanation: row.explanation
         }));
         setQuestions(mapped);
+        setCurrentIndex(0);
+        setResponses({});
       }
+      setLoading(false);
     }
     loadQuestions();
-  }, []);
+  }, [selectedExam]);
 
-  // 120-minute countdown clock
+  // Auto-Read Audio Viva
+  useEffect(() => {
+    if (autoRead && questions.length > 0 && !isSubmitted) {
+      const q = questions[currentIndex];
+      if (q) {
+        speakVivaPrompt(`${q.audio_script}. Option A: ${q.options.A}. Option B: ${q.options.B}. Option C: ${q.options.C}. Option D: ${q.options.D}`);
+      }
+    }
+  }, [currentIndex, autoRead, questions, isSubmitted]);
+
+  // Timer
   useEffect(() => {
     if (timeLeft <= 0 || isSubmitted) return;
     const interval = setInterval(() => {
@@ -145,11 +109,12 @@ export default function ExamHall() {
   };
 
   const handleSelect = (opt: 'A' | 'B' | 'C' | 'D') => {
+    if (!questions[currentIndex]) return;
     const qId = questions[currentIndex].id;
     setResponses((prev) => ({ ...prev, [qId]: opt }));
   };
 
-  const handleSubmitExam = async () => {
+  const handleSubmitExam = () => {
     stopSpeech();
     setIsSubmitted(true);
     let totalScore = 0;
@@ -157,18 +122,48 @@ export default function ExamHall() {
       if (responses[q.id] === q.correct_answer) totalScore += 1;
     });
 
-    if (totalScore / questions.length >= 0.5) {
+    if (questions.length > 0 && totalScore / questions.length >= 0.5) {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     }
   };
 
+  const getDifficultyBadge = (diff: string) => {
+    switch (diff?.toLowerCase()) {
+      case 'easy':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      case 'hard':
+        return 'bg-rose-100 text-rose-800 border-rose-300';
+      default:
+        return 'bg-amber-100 text-amber-800 border-amber-300';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 font-sans text-slate-700 font-bold">
+        Loading Question Bank...
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-6 text-center">
+        <p className="text-lg font-bold text-slate-800">No questions available for this module.</p>
+        <button onClick={() => setSelectedExam('ALL')} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold">
+          View All Questions
+        </button>
+      </div>
+    );
+  }
+
   const currentQ = questions[currentIndex];
   const score = questions.reduce((acc, q) => acc + (responses[q.id] === q.correct_answer ? 1 : 0), 0);
-  const isPassed = score / questions.length >= 0.5;
+  const isPassed = questions.length > 0 && score / questions.length >= 0.5;
 
   if (isSubmitted) {
     return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6 select-none no-copy">
+      <div className="max-w-4xl mx-auto p-6 space-y-6 select-none no-copy font-sans">
         <div className={`p-6 rounded-2xl text-white shadow-lg ${isPassed ? 'bg-emerald-700' : 'bg-rose-700'}`}>
           <div className="flex items-center gap-3">
             <Award className="w-8 h-8" />
@@ -185,8 +180,12 @@ export default function ExamHall() {
             const isCorrect = userChoice === q.correct_answer;
             return (
               <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="text-slate-500 uppercase tracking-wide">Q{idx + 1} • {q.module}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 font-bold uppercase">{q.exam_type}</span>
+                    <span className={`px-2 py-0.5 rounded border uppercase text-[10px] font-bold ${getDifficultyBadge(q.difficulty)}`}>{q.difficulty}</span>
+                    <span className="text-slate-500">Q{idx + 1} • {q.module}</span>
+                  </div>
                   {isCorrect ? (
                     <span className="text-emerald-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
                   ) : (
@@ -220,24 +219,64 @@ export default function ExamHall() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none no-copy">
-      <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
+      <header className="bg-slate-900 text-white px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-md">
         <div>
           <h1 className="text-lg font-bold tracking-tight">BankerViva • IIBF CBT Simulation</h1>
-          <p className="text-xs text-slate-400">Total: {questions.length} Questions | 120 Mins</p>
+          <div className="flex items-center gap-2 mt-1">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={selectedExam}
+              onChange={(e) => setSelectedExam(e.target.value)}
+              className="bg-slate-800 text-xs text-slate-200 rounded px-2 py-0.5 border border-slate-700 focus:outline-none"
+            >
+              <option value="ALL">All Certifications ({questions.length} Loaded)</option>
+              <option value="DRA">DRA (Debt Recovery Agent)</option>
+              <option value="JAIIB">JAIIB Modules</option>
+              <option value="CAIIB">CAIIB Modules</option>
+              <option value="AML_KYC">AML / KYC</option>
+              <option value="BCBF">BC / BF</option>
+              <option value="CCP">CCP (Credit Professional)</option>
+            </select>
+          </div>
         </div>
-        <div className="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 font-mono text-amber-400 font-bold">
-          <Clock className="w-4 h-4 animate-pulse" />
-          {formatTimer(timeLeft)}
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              if (autoRead) stopSpeech();
+              setAutoRead(!autoRead);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              autoRead ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-slate-800 text-slate-300 border border-slate-700'
+            }`}
+          >
+            {autoRead ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            Auto-Read: {autoRead ? 'ON' : 'OFF'}
+          </button>
+
+          <div className="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 font-mono text-amber-400 font-bold text-sm">
+            <Clock className="w-4 h-4 animate-pulse" />
+            {formatTimer(timeLeft)}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
         <section className="md:col-span-2 bg-white rounded-2xl shadow-sm border p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-center pb-4 border-b">
-              <span className="text-xs font-bold uppercase bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
-                Question {currentIndex + 1} of {questions.length}
-              </span>
+            <div className="flex flex-wrap justify-between items-center pb-4 border-b gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
+                  Question {currentIndex + 1} of {questions.length}
+                </span>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border">
+                  {currentQ.exam_type}
+                </span>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getDifficultyBadge(currentQ.difficulty)}`}>
+                  {currentQ.difficulty}
+                </span>
+              </div>
+
               <button
                 onClick={() =>
                   speakVivaPrompt(
@@ -250,7 +289,8 @@ export default function ExamHall() {
               </button>
             </div>
 
-            <p className="text-base font-semibold text-slate-900 mt-4 leading-relaxed">
+            <p className="text-xs text-slate-500 mt-3 font-medium uppercase tracking-wider">{currentQ.module}</p>
+            <p className="text-base font-semibold text-slate-900 mt-2 leading-relaxed">
               {currentQ.question_text}
             </p>
 
@@ -309,8 +349,8 @@ export default function ExamHall() {
 
         <aside className="bg-white rounded-2xl shadow-sm border p-6 flex flex-col justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 mb-4">Question Palette</h2>
-            <div className="grid grid-cols-5 gap-2">
+            <h2 className="text-sm font-bold text-slate-800 mb-4">Question Palette ({questions.length})</h2>
+            <div className="grid grid-cols-5 gap-2 max-h-[480px] overflow-y-auto pr-1">
               {questions.map((q, idx) => {
                 let color = 'bg-slate-100 text-slate-700 border-slate-200';
                 if (responses[q.id]) color = 'bg-emerald-600 text-white border-emerald-700';
