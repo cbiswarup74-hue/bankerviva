@@ -1,24 +1,32 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Filter } from 'lucide-react';
+import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Filter, Play, RotateCcw, ArrowLeft } from 'lucide-react';
 import { Question } from '@/types/exam';
 import { speakVivaPrompt, stopSpeech } from '@/lib/speech';
 import { supabase } from '@/lib/supabaseClient';
 import confetti from 'canvas-confetti';
+import Link from 'next/link';
 
 export default function ExamHall() {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  // Configurator state
+  const [inExam, setInExam] = useState(false);
   const [selectedExam, setSelectedExam] = useState<string>('ALL');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
+  const [questionCount, setQuestionCount] = useState<number>(20);
+  const [durationMinutes, setDurationMinutes] = useState<number>(30);
+
+  // Exam runtime state
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(120 * 60);
+  const [timeLeft, setTimeLeft] = useState(30 * 60);
   const [responses, setResponses] = useState<Record<string, 'A' | 'B' | 'C' | 'D' | null>>({});
   const [reviewFlags, setReviewFlags] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // Anti-Copy & Shortcut Protection
+  // Security protections
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,55 +47,65 @@ export default function ExamHall() {
     };
   }, []);
 
-  // Fetch Questions dynamically by Exam Filter
-  useEffect(() => {
-    async function loadQuestions() {
-      setLoading(true);
-      let query = supabase.from('questions').select('*').limit(200);
-      if (selectedExam !== 'ALL') {
-        query = query.ilike('exam_type', `%${selectedExam}%`);
-      }
+  // Fetch Questions based on custom exam configuration
+  const startCustomExam = async () => {
+    setLoading(true);
+    let query = supabase.from('questions').select('*');
 
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        const mapped: Question[] = data.map((row: any) => ({
-          id: row.id,
-          exam_type: row.exam_type,
-          module: row.module,
-          difficulty: row.difficulty,
-          question_text: row.question_text,
-          audio_script: row.audio_script,
-          options: {
-            A: row.option_a,
-            B: row.option_b,
-            C: row.option_c,
-            D: row.option_d
-          },
-          correct_answer: row.correct_option,
-          explanation: row.explanation
-        }));
-        setQuestions(mapped);
-        setCurrentIndex(0);
-        setResponses({});
-      }
-      setLoading(false);
+    if (selectedExam !== 'ALL') {
+      query = query.ilike('exam_type', `%${selectedExam}%`);
     }
-    loadQuestions();
-  }, [selectedExam]);
 
-  // Auto-Read Audio Viva
+    if (selectedDifficulty !== 'ALL') {
+      query = query.eq('difficulty', selectedDifficulty.toLowerCase());
+    }
+
+    const { data, error } = await query.limit(questionCount);
+
+    if (!error && data && data.length > 0) {
+      const mapped: Question[] = data.map((row: any) => ({
+        id: row.id,
+        exam_type: row.exam_type,
+        module: row.module,
+        difficulty: row.difficulty,
+        question_text: row.question_text,
+        audio_script: row.audio_script,
+        options: {
+          A: row.option_a,
+          B: row.option_b,
+          C: row.option_c,
+          D: row.option_d
+        },
+        correct_answer: row.correct_option,
+        explanation: row.explanation
+      }));
+
+      setQuestions(mapped);
+      setTimeLeft(durationMinutes * 60);
+      setCurrentIndex(0);
+      setResponses({});
+      setReviewFlags({});
+      setIsSubmitted(false);
+      setInExam(true);
+    } else {
+      alert('No questions found matching your selected criteria. Try adjusting the difficulty or track filter.');
+    }
+    setLoading(false);
+  };
+
+  // Auto-Read Viva Speech
   useEffect(() => {
-    if (autoRead && questions.length > 0 && !isSubmitted) {
+    if (autoRead && inExam && questions.length > 0 && !isSubmitted) {
       const q = questions[currentIndex];
       if (q) {
         speakVivaPrompt(`${q.audio_script}. Option A: ${q.options.A}. Option B: ${q.options.B}. Option C: ${q.options.C}. Option D: ${q.options.D}`);
       }
     }
-  }, [currentIndex, autoRead, questions, isSubmitted]);
+  }, [currentIndex, autoRead, inExam, questions, isSubmitted]);
 
   // Timer
   useEffect(() => {
-    if (timeLeft <= 0 || isSubmitted) return;
+    if (!inExam || timeLeft <= 0 || isSubmitted) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -99,7 +117,7 @@ export default function ExamHall() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [timeLeft, isSubmitted]);
+  }, [inExam, timeLeft, isSubmitted]);
 
   const formatTimer = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -138,21 +156,101 @@ export default function ExamHall() {
     }
   };
 
-  if (loading) {
+  // 1. PRE-TEST CONFIGURATOR VIEW
+  if (!inExam) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 font-sans text-slate-700 font-bold">
-        Loading Question Bank...
-      </div>
-    );
-  }
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none">
+        <header className="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition">
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </Link>
+          <span className="text-sm font-black text-blue-400">BankerViva Test Engine</span>
+        </header>
 
-  if (questions.length === 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 p-6 text-center">
-        <p className="text-lg font-bold text-slate-800">No questions available for this module.</p>
-        <button onClick={() => setSelectedExam('ALL')} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold">
-          View All Questions
-        </button>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6 shadow-2xl">
+            <div>
+              <h1 className="text-2xl font-black">Configure Your Mock Exam</h1>
+              <p className="text-xs text-slate-400 mt-1">Select your syllabus target, session length, and difficulty level.</p>
+            </div>
+
+            {/* Exam Track */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-300">Certification Track</label>
+              <select
+                value={selectedExam}
+                onChange={(e) => setSelectedExam(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-blue-500"
+              >
+                <option value="ALL">All Certifications Combined</option>
+                <option value="DRA">DRA (Debt Recovery Agent)</option>
+                <option value="JAIIB">JAIIB (All 4 Modules)</option>
+                <option value="CAIIB">CAIIB (All 3 Modules)</option>
+                <option value="AML_KYC">AML / KYC Compliance</option>
+                <option value="BCBF">BC / BF Financial Inclusion</option>
+                <option value="CCP">CCP (Credit Professional)</option>
+              </select>
+            </div>
+
+            {/* Difficulty Mode */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-300">Difficulty Tier</label>
+              <div className="grid grid-cols-4 gap-2 text-xs font-bold">
+                {['ALL', 'EASY', 'MODERATE', 'HARD'].map((tier) => (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => setSelectedDifficulty(tier)}
+                    className={`py-2.5 rounded-lg border transition ${
+                      selectedDifficulty === tier
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    {tier}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Test Duration & Question Count */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-slate-300">Session Format</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Sprint (20 Qs)', count: 20, mins: 30 },
+                  { label: 'Sectional (50 Qs)', count: 50, mins: 60 },
+                  { label: 'Full CBT (100 Qs)', count: 100, mins: 120 }
+                ].map((mode) => (
+                  <button
+                    key={mode.count}
+                    type="button"
+                    onClick={() => {
+                      setQuestionCount(mode.count);
+                      setDurationMinutes(mode.mins);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      questionCount === mode.count
+                        ? 'bg-blue-600/20 border-blue-500 text-white'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">{mode.label}</div>
+                    <div className="text-[10px] text-slate-400 mt-1">{mode.mins} Minutes</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={startCustomExam}
+              disabled={loading}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current" /> {loading ? 'Loading Questions...' : 'Start Examination'}
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -161,6 +259,7 @@ export default function ExamHall() {
   const score = questions.reduce((acc, q) => acc + (responses[q.id] === q.correct_answer ? 1 : 0), 0);
   const isPassed = questions.length > 0 && score / questions.length >= 0.5;
 
+  // 2. SUBMITTED REVIEW SHEET
   if (isSubmitted) {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-6 select-none no-copy font-sans">
@@ -171,6 +270,15 @@ export default function ExamHall() {
           </div>
           <p className="mt-3 text-lg font-medium">Final Score: {score} / {questions.length} ({Math.round((score / questions.length) * 100)}%)</p>
           <p className="text-sm opacity-80">IIBF Qualifying Criterion: 50% Aggregate</p>
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            onClick={() => setInExam(false)}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition"
+          >
+            <RotateCcw className="w-4 h-4" /> Start New Test
+          </button>
         </div>
 
         <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
@@ -217,27 +325,13 @@ export default function ExamHall() {
     );
   }
 
+  // 3. LIVE EXAMINATION ARENA
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none no-copy">
       <header className="bg-slate-900 text-white px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-md">
         <div>
           <h1 className="text-lg font-bold tracking-tight">BankerViva • IIBF CBT Simulation</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedExam}
-              onChange={(e) => setSelectedExam(e.target.value)}
-              className="bg-slate-800 text-xs text-slate-200 rounded px-2 py-0.5 border border-slate-700 focus:outline-none"
-            >
-              <option value="ALL">All Certifications ({questions.length} Loaded)</option>
-              <option value="DRA">DRA (Debt Recovery Agent)</option>
-              <option value="JAIIB">JAIIB Modules</option>
-              <option value="CAIIB">CAIIB Modules</option>
-              <option value="AML_KYC">AML / KYC</option>
-              <option value="BCBF">BC / BF</option>
-              <option value="CCP">CCP (Credit Professional)</option>
-            </select>
-          </div>
+          <p className="text-xs text-slate-400">{selectedExam} Track | {selectedDifficulty} Tier | {questions.length} Questions</p>
         </div>
 
         <div className="flex items-center gap-4">
