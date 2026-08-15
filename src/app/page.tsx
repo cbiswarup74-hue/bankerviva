@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, Volume2, Award, BookOpen, CheckCircle, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Volume2, Award, BookOpen, CheckCircle, ArrowRight, User } from 'lucide-react';
 
 export default function LandingPage() {
   return (
@@ -12,8 +12,17 @@ export default function LandingPage() {
         <div className="text-lg font-black tracking-tight flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-blue-400" /> BankerViva
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/exam" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/auth"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
+          >
+            <User className="w-3.5 h-3.5" /> Sign In
+          </Link>
+          <Link
+            href="/exam"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition shadow"
+          >
             Launch Exam Portal
           </Link>
         </div>
@@ -31,10 +40,16 @@ export default function LandingPage() {
           Prepare for DRA, JAIIB, CAIIB, AML/KYC, BC/BF, and CCP examinations with voice viva prompts, statutory RBI circular rationales, and strict exam hall restrictions.
         </p>
         <div className="pt-4 flex flex-wrap justify-center gap-4">
-          <Link href="/exam" className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2">
+          <Link
+            href="/exam"
+            className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2"
+          >
             Start Practice Exam <ArrowRight className="w-4 h-4" />
           </Link>
-          <a href="#pricing" className="px-8 py-3.5 bg-white hover:bg-slate-100 text-slate-800 font-bold text-sm rounded-xl border border-slate-300 transition">
+          <a
+            href="#pricing"
+            className="px-8 py-3.5 bg-white hover:bg-slate-100 text-slate-800 font-bold text-sm rounded-xl border border-slate-300 transition"
+          >
             View Pricing Plans
           </a>
         </div>
@@ -44,7 +59,9 @@ export default function LandingPage() {
       <section className="max-w-6xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h2 className="text-2xl font-black text-slate-900">Why Banking Aspirants Choose BankerViva</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Engineered for working banking executives & professional candidates</p>
+          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">
+            Engineered for working banking executives & professional candidates
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -85,7 +102,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-black">Supported Certifications & Modules</h2>
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-1">Comprehensive question banks across all difficulty tiers</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-1">
+              Comprehensive question banks across all difficulty tiers
+            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -95,10 +114,12 @@ export default function LandingPage() {
               { code: 'CAIIB', name: 'Certified Associate (IIBF)', desc: 'ABM, BFM & BRBL Law' },
               { code: 'AML_KYC', name: 'AML & KYC Compliance', desc: 'PMLA 2002 & STR/CTR Reporting' },
               { code: 'BCBF', name: 'Business Correspondent', desc: 'Financial Inclusion & Microfinance' },
-              { code: 'CCP', name: 'Certified Credit Professional', desc: 'CMA Analysis, DSCR & IRAC Norms' }
+              { code: 'CCP', name: 'Certified Credit Professional', desc: 'CMA Analysis, DSCR & IRAC Norms' },
             ].map((track) => (
               <div key={track.code} className="p-5 bg-slate-800 rounded-xl border border-slate-700 space-y-2">
-                <span className="text-[10px] font-bold bg-blue-900 text-blue-200 px-2 py-0.5 rounded">{track.code}</span>
+                <span className="text-[10px] font-bold bg-blue-900 text-blue-200 px-2 py-0.5 rounded">
+                  {track.code}
+                </span>
                 <h3 className="font-bold text-sm text-white">{track.name}</h3>
                 <p className="text-[11px] text-slate-400">{track.desc}</p>
               </div>
@@ -111,7 +132,9 @@ export default function LandingPage() {
       <section id="pricing" className="max-w-5xl mx-auto px-6 py-20">
         <div className="text-center mb-12">
           <h2 className="text-2xl font-black text-slate-900">Simple, Transparent Access Plans</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Unlock full mock examinations and audio viva libraries</p>
+          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">
+            Unlock full mock examinations and audio viva libraries
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -121,12 +144,21 @@ export default function LandingPage() {
               <div className="text-3xl font-black text-slate-900 mt-2">Free</div>
               <p className="text-xs text-slate-600 mt-1">Essential preview questions for quick self-assessment.</p>
               <ul className="mt-6 space-y-3 text-xs text-slate-700 font-medium">
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-600" /> Access sample database questions</li>
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-600" /> CBT simulation interface</li>
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-600" /> Basic statutory explanations</li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Access sample database questions
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> CBT simulation interface
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Basic statutory explanations
+                </li>
               </ul>
             </div>
-            <Link href="/exam" className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl text-center transition">
+            <Link
+              href="/exam"
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl text-center transition"
+            >
               Start Free Trial
             </Link>
           </div>
@@ -137,16 +169,29 @@ export default function LandingPage() {
             </div>
             <div>
               <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Pro Banker Pass</span>
-              <div className="text-3xl font-black text-white mt-2">₹999 <span className="text-sm font-normal text-blue-200">/ exam track</span></div>
+              <div className="text-3xl font-black text-white mt-2">
+                ₹999 <span className="text-sm font-normal text-blue-200">/ exam track</span>
+              </div>
               <p className="text-xs text-blue-200 mt-1">Complete mastery package for guaranteed qualifying scores.</p>
               <ul className="mt-6 space-y-3 text-xs text-blue-100 font-medium">
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400" /> Full Verified Question Bank</li>
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400" /> Unlimited Audio Viva Mode & Read Aloud</li>
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400" /> Easy / Moderate / Hard difficulty filters</li>
-                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-400" /> Performance analytics & weak area report</li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Full Verified Question Bank
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Unlimited Audio Viva Mode & Read Aloud
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Easy / Moderate / Hard difficulty filters
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Performance analytics & weak area report
+                </li>
               </ul>
             </div>
-            <Link href="/exam" className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl text-center transition shadow-md">
+            <Link
+              href="/exam"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl text-center transition shadow-md"
+            >
               Get Pro Access Now
             </Link>
           </div>
