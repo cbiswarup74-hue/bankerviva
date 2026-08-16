@@ -192,6 +192,7 @@ export default function ExamHall() {
             is_passed: passed,
             status: 'completed',
             time_spent_seconds: secondsSpent,
+            response_sheet: responses,
           },
         ]);
         if (error) {
