@@ -29,7 +29,7 @@ export default function ExamHall() {
   const [autoRead, setAutoRead] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 1. Single Active Session Watchdog (Concurrent Login Prevention)
+  // Single Active Session Watchdog
   useEffect(() => {
     const sessionInterval = setInterval(async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -75,7 +75,7 @@ export default function ExamHall() {
     };
   }, []);
 
-  // Fetch Questions based on custom exam configuration
+  // Fetch Questions
   const startCustomExam = async () => {
     setLoading(true);
     let query = supabase.from('questions').select('*');
@@ -116,7 +116,7 @@ export default function ExamHall() {
       setIsSubmitted(false);
       setInExam(true);
     } else {
-      alert('No questions found matching your selected criteria. Try selecting All Certifications or another tier.');
+      alert('No questions found matching your selected criteria.');
     }
     setLoading(false);
   };
@@ -174,6 +174,9 @@ export default function ExamHall() {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     }
 
+    const totalAllowedTime = durationMinutes * 60;
+    const secondsSpent = Math.max(0, totalAllowedTime - timeLeft);
+
     // Save attempt to Supabase
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -188,6 +191,7 @@ export default function ExamHall() {
             percentage: Math.round((totalScore / questions.length) * 100),
             is_passed: passed,
             status: 'completed',
+            time_spent_seconds: secondsSpent,
           },
         ]);
         if (error) {
@@ -196,7 +200,7 @@ export default function ExamHall() {
           console.log('Exam scorecard recorded successfully.');
         }
       } else {
-        console.log('Guest session completed. Scorecards are persisted for logged-in aspirants.');
+        console.log('Guest session completed.');
       }
     } catch (err) {
       console.error('Error logging exam attempt:', err);
@@ -232,7 +236,6 @@ export default function ExamHall() {
               <p className="text-xs text-slate-400 mt-1">Select your syllabus target, session length, and difficulty level.</p>
             </div>
 
-            {/* Exam Track */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-slate-300">Certification Track</label>
               <select
@@ -250,7 +253,6 @@ export default function ExamHall() {
               </select>
             </div>
 
-            {/* Difficulty Mode */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-slate-300">Difficulty Tier</label>
               <div className="grid grid-cols-4 gap-2 text-xs font-bold">
@@ -271,7 +273,6 @@ export default function ExamHall() {
               </div>
             </div>
 
-            {/* Test Duration & Question Count */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-slate-300">Session Format</label>
               <div className="grid grid-cols-3 gap-2">
