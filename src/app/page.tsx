@@ -24,6 +24,20 @@ export default function LandingPage() {
 
   const individualPlans = [
     {
+      title: 'BC / BF (Business Correspondent)',
+      price: '₹399',
+      duration: '6 Months',
+      credits: '20 Mock Attempts',
+      badge: 'Financial Inclusion',
+      features: [
+        'PMJDY, PMJJBY, PMSBY & APY Framework',
+        'AePS, Micro-ATM & Biometric Tech',
+        'SHG & Rural Lending Norms',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in BC/BF Track'
+    },
+    {
       title: 'DRA (Debt Recovery Agent)',
       price: '₹499',
       duration: '6 Months',
@@ -36,6 +50,20 @@ export default function LandingPage() {
         '2 Personal Devices Bound'
       ],
       ctaText: 'Enroll in DRA Track'
+    },
+    {
+      title: 'AML / KYC Compliance',
+      price: '₹699',
+      duration: '6 Months',
+      credits: '25 Mock Attempts',
+      badge: 'Statutory Specialist',
+      features: [
+        'PMLA 2002 & FIU-IND Reporting Rules',
+        'CTR, STR, CCR Thresholds & EDD',
+        'Beneficial Ownership Rules',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in AML/KYC Track'
     },
     {
       title: 'JAIIB Comprehensive',
@@ -60,10 +88,24 @@ export default function LandingPage() {
       features: [
         'All 3 Compulsory Modules + Electives',
         'Forex, Treasury & Risk Case Scenarios',
-        'Step-by-step Explanations',
+        'Step-by-step Numerical Solutions',
         '2 Personal Devices Bound'
       ],
       ctaText: 'Enroll in CAIIB Track'
+    },
+    {
+      title: 'Certified Credit Professional (CCP)',
+      price: '₹1,499',
+      duration: '6 Months',
+      credits: '35 Mock Attempts',
+      badge: 'Credit Appraisal',
+      features: [
+        'Tandon / Nayak Working Capital Models',
+        'TOL/TNW, DSCR & Balance Sheet Analysis',
+        'Large Exposure Framework & Consortium',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in CCP Track'
     },
     {
       title: 'All-Access Master Pass',
@@ -72,7 +114,7 @@ export default function LandingPage() {
       credits: 'Unlimited CBT Attempts',
       badge: 'Best Value',
       features: [
-        'Unlocks DRA, JAIIB, CAIIB, AML/KYC & CCP',
+        'Unlocks DRA, JAIIB, CAIIB, BC/BF, AML/KYC & CCP',
         'Single Active Session Protection',
         'Full Audio Viva Engine Access',
         'Max 2 Personal Devices'
@@ -82,6 +124,21 @@ export default function LandingPage() {
   ];
 
   const institutionalPlans = [
+    {
+      title: 'BC / BF Rural CSC Bulk Pass',
+      price: '₹249',
+      unit: '/ candidate',
+      minOrder: 'Min 25 Candidate Seats (₹6,225 total)',
+      duration: '6 Months',
+      badge: 'Financial Inclusion',
+      features: [
+        'Instant 16-Character Activation Vouchers',
+        'AePS, PMJDY & Social Security Test Series',
+        'Individual Candidate Device Locking',
+        'Official Invoicing for Corporate BCs'
+      ],
+      ctaText: 'Book BC/BF Batch'
+    },
     {
       title: 'DRA Agency Bulk Tier',
       price: '₹299',
@@ -98,21 +155,6 @@ export default function LandingPage() {
       ctaText: 'Book DRA Agency Batch'
     },
     {
-      title: 'JAIIB / CAIIB Bank Batch',
-      price: '₹799',
-      unit: '/ candidate',
-      minOrder: 'Min 10 Candidate Seats (₹7,990 total)',
-      duration: '6 Months',
-      badge: 'Bank / NBFC',
-      features: [
-        'Bulk Voucher Activation for Staff',
-        'Full 4-Module Question Bank Access',
-        'Real-time Staff Attempt Analytics',
-        'Centralized Voucher Management'
-      ],
-      ctaText: 'Order Bank Study Batch'
-    },
-    {
       title: 'Specialized (AML/KYC & CCP)',
       price: '₹449',
       unit: '/ candidate',
@@ -126,6 +168,21 @@ export default function LandingPage() {
         'Corporate Verification Support'
       ],
       ctaText: 'Order Compliance Tier'
+    },
+    {
+      title: 'JAIIB / CAIIB Bank Batch',
+      price: '₹799',
+      unit: '/ candidate',
+      minOrder: 'Min 10 Candidate Seats (₹7,990 total)',
+      duration: '6 Months',
+      badge: 'Bank / NBFC',
+      features: [
+        'Bulk Voucher Activation for Staff',
+        'Full 4-Module Question Bank Access',
+        'Real-time Staff Attempt Analytics',
+        'Centralized Voucher Management'
+      ],
+      ctaText: 'Order Bank Study Batch'
     }
   ];
 
@@ -236,7 +293,7 @@ export default function LandingPage() {
       </section>
 
       {/* Commercial Pricing Matrix Section */}
-      <section id="pricing" className="max-w-6xl mx-auto px-6 py-16 space-y-8 border-t border-slate-200">
+      <section id="pricing" className="max-w-7xl mx-auto px-6 py-16 space-y-8 border-t border-slate-200">
         <div className="text-center space-y-2">
           <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Transparent Licensing</span>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900">Choose Your Certification Track</h2>
@@ -271,9 +328,9 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Pricing Cards */}
+        {/* Pricing Cards Grid */}
         {pricingTab === 'individual' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-2">
             {individualPlans.map((plan, idx) => (
               <div
                 key={idx}
@@ -320,7 +377,7 @@ export default function LandingPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto pt-2">
             {institutionalPlans.map((plan, idx) => (
               <div
                 key={idx}
