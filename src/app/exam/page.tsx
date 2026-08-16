@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Filter, Play, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Play, RotateCcw, ArrowLeft } from 'lucide-react';
 import { Question } from '@/types/exam';
 import { speakVivaPrompt, stopSpeech } from '@/lib/speech';
 import { supabase } from '@/lib/supabaseClient';
@@ -187,6 +187,7 @@ export default function ExamHall() {
             score: totalScore,
             percentage: Math.round((totalScore / questions.length) * 100),
             is_passed: passed,
+            status: 'completed',
           },
         ]);
         if (error) {
