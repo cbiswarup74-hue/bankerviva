@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play, Smartphone, Laptop, Zap } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play, Smartphone, Laptop, Zap, Key, Tag } from 'lucide-react';
 
 interface ExamAttempt {
   id: string;
@@ -22,49 +22,77 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Voucher redemption state
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherMessage, setVoucherMessage] = useState('');
+  const [voucherError, setVoucherError] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
-    async function loadUserData() {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push('/auth');
-        return;
-      }
-
-      setUser(user);
-
-      // Load profile info & registered devices & mock credits
-      const { data: profData } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profData) {
-        setProfile(profData);
-      }
-
-      // Load score history
-      const { data, error } = await supabase
-        .from('exam_attempts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setAttempts(data);
-      }
-      setLoading(false);
-    }
-
     loadUserData();
   }, [router]);
+
+  async function loadUserData() {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push('/auth');
+      return;
+    }
+
+    setUser(user);
+
+    const { data: profData } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profData) {
+      setProfile(profData);
+    }
+
+    const { data, error } = await supabase
+      .from('exam_attempts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setAttempts(data);
+    }
+    setLoading(false);
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/');
+  };
+
+  const handleRedeemVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!voucherCode.trim() || !user) return;
+
+    setRedeeming(true);
+    setVoucherMessage('');
+    setVoucherError('');
+
+    const { data, error } = await supabase.rpc('redeem_license_voucher', {
+      p_user_id: user.id,
+      p_voucher_code: voucherCode.trim()
+    });
+
+    if (error || !data?.success) {
+      setVoucherError('Invalid, expired, or already used voucher code.');
+    } else {
+      setVoucherMessage(`Voucher applied! +${data.credits_added} Mock Credits unlocked for ${data.exam_track}.`);
+      setVoucherCode('');
+      await loadUserData();
+    }
+    setRedeeming(false);
   };
 
   if (loading) {
@@ -147,6 +175,49 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Average Score</span>
             <div className="text-3xl font-black text-blue-400">{avgScore}%</div>
           </div>
+        </div>
+
+        {/* Institutional Voucher Activation Box */}
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-amber-400" />
+            <h2 className="text-base font-bold text-white">Redeem Institutional / Agency Access Voucher</h2>
+          </div>
+          <p className="text-xs text-slate-400">
+            Sponsored by a Recovery Agency, Bank, or Coaching Institute? Enter your 16-character institutional voucher code to unlock your licensed track.
+          </p>
+
+          <form onSubmit={handleRedeemVoucher} className="flex flex-col sm:flex-row gap-3 pt-1">
+            <div className="relative flex-1">
+              <Tag className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              <input
+                type="text"
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                placeholder="e.g. DRA-2026-BATCH-X9K2"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs uppercase font-mono tracking-widest focus:outline-none focus:border-blue-500 text-white"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={redeeming || !voucherCode.trim()}
+              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl shadow transition"
+            >
+              {redeeming ? 'Validating...' : 'Activate Voucher'}
+            </button>
+          </form>
+
+          {voucherMessage && (
+            <div className="p-3 rounded-lg bg-emerald-950/50 border border-emerald-500 text-xs text-emerald-300 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" /> {voucherMessage}
+            </div>
+          )}
+
+          {voucherError && (
+            <div className="p-3 rounded-lg bg-rose-950/50 border border-rose-600 text-xs text-rose-300 flex items-center gap-2">
+              <XCircle className="w-4 h-4 flex-shrink-0" /> {voucherError}
+            </div>
+          )}
         </div>
 
         {/* Device Registration & Security Status */}
