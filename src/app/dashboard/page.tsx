@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play, Smartphone, Laptop } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play, Smartphone, Laptop, Zap } from 'lucide-react';
 
 interface ExamAttempt {
   id: string;
@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
       setUser(user);
 
-      // Load profile info & registered devices
+      // Load profile info & registered devices & mock credits
       const { data: profData } = await supabase
         .from('user_profiles')
         .select('*')
@@ -84,6 +84,7 @@ export default function DashboardPage() {
       : 0;
 
   const devices = profile?.registered_devices || [];
+  const remainingCredits = profile?.mock_credits_remaining ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none">
@@ -126,18 +127,24 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Analytics & Quota Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="p-5 bg-slate-800 border border-slate-700 rounded-xl space-y-1">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" /> Mock Credits
+            </span>
+            <div className="text-3xl font-black text-amber-400">{remainingCredits}</div>
+          </div>
           <div className="p-5 bg-slate-800 border border-slate-700 rounded-xl space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Mock Tests</span>
             <div className="text-3xl font-black text-white">{totalExams}</div>
           </div>
           <div className="p-5 bg-slate-800 border border-slate-700 rounded-xl space-y-1">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Qualifying Pass Rate</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pass Rate</span>
             <div className="text-3xl font-black text-emerald-400">{passRate}%</div>
           </div>
           <div className="p-5 bg-slate-800 border border-slate-700 rounded-xl space-y-1">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Average Aggregate Score</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Average Score</span>
             <div className="text-3xl font-black text-blue-400">{avgScore}%</div>
           </div>
         </div>

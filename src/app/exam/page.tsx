@@ -75,9 +75,29 @@ export default function ExamHall() {
     };
   }, []);
 
-  // Fetch Questions
+  // Fetch Questions with Quota / Credit Deduction
   const startCustomExam = async () => {
     setLoading(true);
+
+    // Check user mock credit balance if authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: creditRes, error: creditErr } = await supabase.rpc('deduct_mock_credit', {
+        p_user_id: user.id,
+      });
+
+      if (creditErr) {
+        console.error('Error verifying credit quota:', creditErr);
+      }
+
+      if (creditRes && !creditRes.success) {
+        alert('You have exhausted your mock test credits (0 remaining). Please recharge your subscription to take more exams.');
+        setLoading(false);
+        router.push('/dashboard');
+        return;
+      }
+    }
+
     let query = supabase.from('questions').select('*');
 
     if (selectedExam !== 'ALL') {
