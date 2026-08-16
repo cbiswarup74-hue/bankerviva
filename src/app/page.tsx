@@ -1,240 +1,372 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { ShieldCheck, Volume2, Award, BookOpen, CheckCircle, ArrowRight, User, LogIn } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { 
+  BookOpen, 
+  ShieldCheck, 
+  Award, 
+  CheckCircle2, 
+  ArrowRight, 
+  Building2, 
+  User, 
+  Laptop, 
+  Zap, 
+  HelpCircle,
+  Clock,
+  Sparkles
+} from 'lucide-react';
 
 export default function LandingPage() {
-  const [user, setUser] = useState<any>(null);
+  const [pricingTab, setPricingTab] = useState<'individual' | 'institutional'>('individual');
 
-  useEffect(() => {
-    async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+  const individualPlans = [
+    {
+      title: 'DRA (Debt Recovery Agent)',
+      price: '₹499',
+      duration: '6 Months Validity',
+      credits: '25 Full Mock Attempts',
+      badge: 'High Demand',
+      features: [
+        'Complete RBI Fair Practices Code',
+        'SARFAESI 2002 & DRT Framework',
+        'Audio-Assisted Viva Simulation',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in DRA Track'
+    },
+    {
+      title: 'JAIIB Comprehensive',
+      price: '₹1,299',
+      duration: '6 Months Validity',
+      credits: '40 Full Mock Attempts',
+      badge: 'Banker Choice',
+      features: [
+        'All 4 Modules (IEFS, PPBI, AFM, RBWM)',
+        'Latest 2026 Revised Syllabus',
+        'Detailed Statutory Explanations',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in JAIIB Track'
+    },
+    {
+      title: 'CAIIB Advanced',
+      price: '₹1,299',
+      duration: '6 Months Validity',
+      credits: '40 Full Mock Attempts',
+      badge: 'Officer Scale',
+      features: [
+        'All 3 Compulsory Modules + Electives',
+        'Forex, Treasury & Risk Case Scenarios',
+        'Step-by-step Mathematical Solutions',
+        '2 Personal Devices Bound'
+      ],
+      ctaText: 'Enroll in CAIIB Track'
+    },
+    {
+      title: 'All-Access Master Pass',
+      price: '₹2,499',
+      duration: '12 Months Validity',
+      credits: 'Unlimited CBT Attempts',
+      badge: 'Best Value',
+      features: [
+        'Unlocks DRA, JAIIB, CAIIB, AML/KYC & CCP',
+        'Single Active Session Protection',
+        'Priority Technical & Viva Support',
+        'Multi-Device Sync (Max 2 Devices)'
+      ],
+      ctaText: 'Get All-Access Pass'
     }
-    checkAuth();
-  }, []);
+  ];
+
+  const institutionalPlans = [
+    {
+      title: 'DRA Agency Bulk Tier',
+      price: '₹299',
+      unit: '/ candidate',
+      minOrder: 'Minimum 25 Candidate Seats (₹7,475 total)',
+      duration: '6 Months Validity',
+      badge: 'Agency Special',
+      features: [
+        'Instant 16-Character Activation Vouchers',
+        'Dedicated Batch Performance Dashboard',
+        'Individual Candidate Device Locking',
+        'Official Tax Invoicing for Agencies'
+      ],
+      ctaText: 'Book DRA Agency Batch'
+    },
+    {
+      title: 'JAIIB / CAIIB Bank Branch Pass',
+      price: '₹799',
+      unit: '/ candidate',
+      minOrder: 'Minimum 10 Candidate Seats (₹7,990 total)',
+      duration: '6 Months Validity',
+      badge: 'Corporate / NBFC',
+      features: [
+        'Bulk Voucher Activation for Staff',
+        'Full 4-Module Question Bank Access',
+        'Real-time Staff Attempt Analytics',
+        'Centralized Billing & Voucher Management'
+      ],
+      ctaText: 'Order Bank Study Batch'
+    },
+    {
+      title: 'Specialized Track (AML/KYC & CCP)',
+      price: '₹449',
+      unit: '/ candidate',
+      minOrder: 'Minimum 10 Candidate Seats (₹4,490 total)',
+      duration: '6 Months Validity',
+      badge: 'Compliance Desk',
+      features: [
+        'FIU-IND PMLA Reporting Standards',
+        'Credit Processing & Ratio Appraisals',
+        'Batch Activation Codes',
+        'Corporate Verification Support'
+      ],
+      ctaText: 'Order Compliance Tier'
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 select-none">
-      {/* Navigation Bar */}
-      <nav className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <div className="text-lg font-black tracking-tight flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-blue-400" /> BankerViva
-        </div>
-        <div className="flex items-center gap-3">
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
-            >
-              <User className="w-3.5 h-3.5" /> Dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/auth"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white transition rounded-lg hover:bg-slate-800"
-            >
-              <LogIn className="w-3.5 h-3.5" /> Sign In
-            </Link>
-          )}
+    <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-blue-600 selection:text-white">
+      {/* Navigation */}
+      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 text-blue-400 font-black text-lg">
+            <BookOpen className="w-6 h-6 text-blue-500" />
+            <span>BankerViva</span>
+          </div>
 
-          <Link
-            href="/exam"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition shadow"
-          >
-            Launch Exam Portal
-          </Link>
-        </div>
-      </nav>
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-300">
+            <a href="#features" className="hover:text-blue-400 transition">Features</a>
+            <a href="#pricing" className="hover:text-blue-400 transition">Pricing & Bulk Plans</a>
+            <a href="#security" className="hover:text-blue-400 transition">Anti-Sharing Tech</a>
+          </nav>
 
-      {/* Hero Section */}
-      <header className="max-w-6xl mx-auto px-6 py-16 text-center space-y-6">
-        <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-blue-200">
-          India's Premier IIBF CBT Simulation & Viva Platform
-        </span>
-        <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight">
-          Master Banking Certifications with <span className="text-blue-600">Audio-Powered CBT Simulations</span>
-        </h1>
-        <p className="max-w-2xl mx-auto text-base text-slate-600 font-medium leading-relaxed">
-          Prepare for DRA, JAIIB, CAIIB, AML/KYC, BC/BF, and CCP examinations with voice viva prompts, statutory RBI circular rationales, and strict exam hall restrictions.
-        </p>
-        <div className="pt-4 flex flex-wrap justify-center gap-4">
-          <Link
-            href="/exam"
-            className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2"
-          >
-            Start Practice Exam <ArrowRight className="w-4 h-4" />
-          </Link>
-          <a
-            href="#pricing"
-            className="px-8 py-3.5 bg-white hover:bg-slate-100 text-slate-800 font-bold text-sm rounded-xl border border-slate-300 transition"
-          >
-            View Pricing Plans
-          </a>
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/auth" 
+              className="text-xs font-bold text-slate-300 hover:text-white px-4 py-2 rounded-lg border border-slate-800 hover:border-slate-700 transition"
+            >
+              Sign In
+            </Link>
+            <Link 
+              href="/auth" 
+              className="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg transition"
+            >
+              Create Account
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* Benefits Section */}
-      <section className="max-w-6xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-black text-slate-900">Why Banking Aspirants Choose BankerViva</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">
-            Engineered for working banking executives & professional candidates
-          </p>
+      {/* Hero Section */}
+      <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center space-y-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold">
+          <Sparkles className="w-3.5 h-3.5" /> India's First Audio-Assisted IIBF Viva & CBT Mock Engine
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">
-              <Volume2 className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base text-slate-900">Commute Audio Viva Mode</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Listen to hands-free text-to-speech audio prompts and option reads during your daily transit or preparation walks.
-            </p>
-          </div>
+        <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
+          Master DRA, JAIIB & CAIIB Exams with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Confidence</span>
+        </h1>
 
-          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base text-slate-900">Strict CBT Simulation</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Experience real exam conditions with countdown timers, interactive question palettes, and review flagging mechanics.
-            </p>
-          </div>
+        <p className="max-w-2xl mx-auto text-slate-400 text-sm sm:text-base leading-relaxed">
+          Comprehensive statutory question banks, automated voice viva simulations, and single-license protection built for banking aspirants and recovery agencies.
+        </p>
 
-          <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold">
-              <Award className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-base text-slate-900">Statutory RBI Rationales</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Every answer key cites the precise legal act section, RBI Master Direction circular, or accounting standard.
-            </p>
-          </div>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <Link
+            href="/exam"
+            className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+          >
+            Launch Free Mock Test <ArrowRight className="w-4 h-4" />
+          </Link>
+          <a
+            href="#pricing"
+            className="w-full sm:w-auto px-8 py-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold text-sm rounded-xl transition"
+          >
+            View Pricing & Bulk Tiers
+          </a>
         </div>
       </section>
 
-      {/* Exam Tracks Section */}
-      <section className="bg-slate-900 text-white py-16 px-6 mt-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-black">Supported Certifications & Modules</h2>
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mt-1">
-              Comprehensive question banks across all difficulty tiers
-            </p>
-          </div>
+      {/* Commercial Pricing Matrix Section */}
+      <section id="pricing" className="max-w-7xl mx-auto px-6 py-20 border-t border-slate-900">
+        <div className="text-center space-y-3 mb-12">
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Transparent Licensing</span>
+          <h2 className="text-3xl sm:text-4xl font-black text-white">Simple, Affordable Pricing</h2>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
+            Choose an individual plan for personal preparation or book institutional vouchers for your agency batch.
+          </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { code: 'DRA', name: 'Debt Recovery Agent', desc: 'SARFAESI, DRT & Code of Conduct' },
-              { code: 'JAIIB', name: 'Junior Associate (IIBF)', desc: 'PPB, AFM, IEFS & RBWM' },
-              { code: 'CAIIB', name: 'Certified Associate (IIBF)', desc: 'ABM, BFM & BRBL Law' },
-              { code: 'AML_KYC', name: 'AML & KYC Compliance', desc: 'PMLA 2002 & STR/CTR Reporting' },
-              { code: 'BCBF', name: 'Business Correspondent', desc: 'Financial Inclusion & Microfinance' },
-              { code: 'CCP', name: 'Certified Credit Professional', desc: 'CMA Analysis, DSCR & IRAC Norms' },
-            ].map((track) => (
-              <div key={track.code} className="p-5 bg-slate-800 rounded-xl border border-slate-700 space-y-2">
-                <span className="text-[10px] font-bold bg-blue-900 text-blue-200 px-2 py-0.5 rounded">
-                  {track.code}
-                </span>
-                <h3 className="font-bold text-sm text-white">{track.name}</h3>
-                <p className="text-[11px] text-slate-400">{track.desc}</p>
+          {/* Pricing Toggle */}
+          <div className="flex justify-center pt-6">
+            <div className="inline-flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
+              <button
+                onClick={() => setPricingTab('individual')}
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition ${
+                  pricingTab === 'individual'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" /> Individual Aspirants
+              </button>
+              <button
+                onClick={() => setPricingTab('institutional')}
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition ${
+                  pricingTab === 'institutional'
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" /> Agencies / Institutional Bulk
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing Cards */}
+        {pricingTab === 'individual' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {individualPlans.map((plan, idx) => (
+              <div
+                key={idx}
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-700 transition relative group"
+              >
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-800">
+                      {plan.badge}
+                    </span>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3" /> {plan.duration}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-bold text-white leading-snug">{plan.title}</h3>
+                    <div className="mt-3 flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-white">{plan.price}</span>
+                      <span className="text-xs text-slate-400 font-medium">/ full track</span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-amber-400 mt-1 flex items-center gap-1">
+                      <Zap className="w-3 h-3" /> {plan.credits}
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2.5 pt-4 border-t border-slate-800 text-xs text-slate-300">
+                    {plan.features.map((feat, fIdx) => (
+                      <li key={fIdx} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <Link
+                  href="/auth"
+                  className="mt-6 w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow text-center block transition"
+                >
+                  {plan.ctaText}
+                </Link>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {institutionalPlans.map((plan, idx) => (
+              <div
+                key={idx}
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-amber-500/50 transition relative group"
+              >
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      {plan.badge}
+                    </span>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3" /> {plan.duration}
+                    </span>
+                  </div>
 
-      {/* Subscription & Pricing */}
-      <section id="pricing" className="max-w-5xl mx-auto px-6 py-20">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-black text-slate-900">Simple, Transparent Access Plans</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">
-            Unlock full mock examinations and audio viva libraries
-          </p>
-        </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white leading-snug">{plan.title}</h3>
+                    <div className="mt-3 flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-amber-400">{plan.price}</span>
+                      <span className="text-xs text-slate-400 font-medium">{plan.unit}</span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-slate-300 mt-1">
+                      {plan.minOrder}
+                    </div>
+                  </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="p-8 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-6">
-            <div>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Starter Practice</span>
-              <div className="text-3xl font-black text-slate-900 mt-2">Free</div>
-              <p className="text-xs text-slate-600 mt-1">Essential preview questions for quick self-assessment.</p>
-              <ul className="mt-6 space-y-3 text-xs text-slate-700 font-medium">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Access sample database questions
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" /> CBT simulation interface
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Basic statutory explanations
-                </li>
-              </ul>
-            </div>
-            <Link
-              href="/exam"
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl text-center transition"
-            >
-              Start Free Trial
-            </Link>
-          </div>
+                  <ul className="space-y-2.5 pt-4 border-t border-slate-800 text-xs text-slate-300">
+                    {plan.features.map((feat, fIdx) => (
+                      <li key={fIdx} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-          <div className="p-8 bg-blue-900 text-white rounded-2xl shadow-xl flex flex-col justify-between space-y-6 relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-blue-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-              Recommended
-            </div>
-            <div>
-              <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Pro Banker Pass</span>
-              <div className="text-3xl font-black text-white mt-2">
-                ₹999 <span className="text-sm font-normal text-blue-200">/ exam track</span>
+                <Link
+                  href="/auth"
+                  className="mt-6 w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow text-center block transition"
+                >
+                  {plan.ctaText}
+                </Link>
               </div>
-              <p className="text-xs text-blue-200 mt-1">Complete mastery package for guaranteed qualifying scores.</p>
-              <ul className="mt-6 space-y-3 text-xs text-blue-100 font-medium">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Full Verified Question Bank
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Unlimited Audio Viva Mode & Read Aloud
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Easy / Moderate / Hard difficulty filters
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Performance analytics & weak area report
-                </li>
-              </ul>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Security & Anti-Sharing Section */}
+      <section id="security" className="max-w-7xl mx-auto px-6 py-20 border-t border-slate-900">
+        <div className="text-center space-y-3 mb-12">
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Enterprise Protection</span>
+          <h2 className="text-3xl font-black text-white">Built-in Commercial Safeguards</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center">
+              <Laptop className="w-5 h-5" />
             </div>
-            <Link
-              href="/exam"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl text-center transition shadow-md"
-            >
-              Get Pro Access Now
-            </Link>
+            <h3 className="text-base font-bold text-white">Hardware Device Binding</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Every candidate license is automatically bound to a maximum of 2 personal devices (e.g., primary laptop and phone), preventing unauthorized credential dissemination.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white">Single Active Session Lock</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Real-time active token watchdogs invalidate and terminate duplicate concurrent logins within 10 seconds across disparate IP addresses.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+              <Award className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white">Institutional Voucher Engine</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Agencies receive tamper-proof 16-character license vouchers with automated seat tracking and aggregate performance analytics.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Footer & Contact */}
-      <footer className="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800 text-xs">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div>
-            <p className="font-bold text-white text-sm">BankerViva • IIBF CBT Simulation Engine</p>
-            <p className="mt-1">Empowering banking professionals across India with regulatory compliance excellence.</p>
-          </div>
-          <div className="flex gap-6">
-            <a href="mailto:support@bankerviva.vercel.app" className="hover:text-white transition">Support Email</a>
-            <a href="#pricing" className="hover:text-white transition">Pricing</a>
-            <Link href="/exam" className="hover:text-white transition">Exam Arena</Link>
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-slate-800 text-center text-[11px] text-slate-500">
-          © 2026 BankerViva. All rights reserved. Designed for IIBF & Banking Certificate Aspirants.
-        </div>
+      {/* Footer */}
+      <footer className="border-t border-slate-900 bg-slate-950 py-8 text-center text-xs text-slate-500">
+        <p>© 2026 BankerViva. All rights reserved. Specialized IIBF Exam Readiness Platform.</p>
       </footer>
     </div>
   );
