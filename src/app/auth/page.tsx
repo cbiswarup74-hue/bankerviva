@@ -20,13 +20,36 @@ export default function AuthPage() {
     setMessage('');
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setMessage(error.message);
-      else setMessage('Registration successful! Please check your email to verify.');
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setMessage(error.message);
       else {
+        setMessage('Registration successful! Signing you in...');
+        const newSessionToken = crypto.randomUUID();
+        localStorage.setItem('bankerviva_session_token', newSessionToken);
+        if (data.user) {
+          await supabase.from('user_profiles').upsert({
+            id: data.user.id,
+            email: data.user.email,
+            current_session_token: newSessionToken,
+            mock_credits_remaining: 20
+          });
+        }
+        router.push('/exam');
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setMessage(error.message);
+      } else if (data.user) {
+        // Generate new session token and update profile
+        const newSessionToken = crypto.randomUUID();
+        localStorage.setItem('bankerviva_session_token', newSessionToken);
+
+        await supabase
+          .from('user_profiles')
+          .update({ current_session_token: newSessionToken })
+          .eq('id', data.user.id);
+
         router.push('/exam');
       }
     }
@@ -68,7 +91,7 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="banker@example.com"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 text-white"
                 />
               </div>
             </div>
@@ -83,7 +106,7 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 text-white"
                 />
               </div>
             </div>

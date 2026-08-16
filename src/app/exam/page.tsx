@@ -7,8 +7,11 @@ import { speakVivaPrompt, stopSpeech } from '@/lib/speech';
 import { supabase } from '@/lib/supabaseClient';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function ExamHall() {
+  const router = useRouter();
+
   // Configurator state
   const [inExam, setInExam] = useState(false);
   const [selectedExam, setSelectedExam] = useState<string>('ALL');
@@ -25,6 +28,31 @@ export default function ExamHall() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 1. Single Active Session Watchdog (Concurrent Login Prevention)
+  useEffect(() => {
+    const sessionInterval = setInterval(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const localToken = localStorage.getItem('bankerviva_session_token');
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('current_session_token')
+          .eq('id', user.id)
+          .single();
+
+        if (profile && localToken && profile.current_session_token !== localToken) {
+          clearInterval(sessionInterval);
+          stopSpeech();
+          alert('You have been logged out because this account was logged into from another browser or device.');
+          await supabase.auth.signOut();
+          router.push('/auth');
+        }
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(sessionInterval);
+  }, [router]);
 
   // Security protections
   useEffect(() => {
@@ -132,7 +160,7 @@ export default function ExamHall() {
     setResponses((prev) => ({ ...prev, [qId]: opt }));
   };
 
-  const handleSubmitExam = () => {
+  const handleSubmitExam = async () => {
     stopSpeech();
     setIsSubmitted(true);
     let totalScore = 0;
@@ -140,8 +168,26 @@ export default function ExamHall() {
       if (responses[q.id] === q.correct_answer) totalScore += 1;
     });
 
-    if (questions.length > 0 && totalScore / questions.length >= 0.5) {
+    const passed = questions.length > 0 && totalScore / questions.length >= 0.5;
+
+    if (passed) {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    }
+
+    // Save attempt to Supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('exam_attempts').insert([
+        {
+          user_id: user.id,
+          exam_type: selectedExam,
+          difficulty: selectedDifficulty,
+          total_questions: questions.length,
+          score: totalScore,
+          percentage: Math.round((totalScore / questions.length) * 100),
+          is_passed: passed,
+        },
+      ]);
     }
   };
 
