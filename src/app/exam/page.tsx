@@ -49,12 +49,12 @@ export default function ExamHall() {
           router.push('/auth');
         }
       }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
     return () => clearInterval(sessionInterval);
   }, [router]);
 
-  // Security protections
+  // Anti-cheating & copy protection
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -116,7 +116,7 @@ export default function ExamHall() {
       setIsSubmitted(false);
       setInExam(true);
     } else {
-      alert('No questions found matching your selected criteria. Try adjusting the difficulty or track filter.');
+      alert('No questions found matching your selected criteria. Try selecting All Certifications or another tier.');
     }
     setLoading(false);
   };
@@ -131,7 +131,7 @@ export default function ExamHall() {
     }
   }, [currentIndex, autoRead, inExam, questions, isSubmitted]);
 
-  // Timer
+  // Countdown Timer
   useEffect(() => {
     if (!inExam || timeLeft <= 0 || isSubmitted) return;
     const interval = setInterval(() => {
@@ -175,19 +175,30 @@ export default function ExamHall() {
     }
 
     // Save attempt to Supabase
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('exam_attempts').insert([
-        {
-          user_id: user.id,
-          exam_type: selectedExam,
-          difficulty: selectedDifficulty,
-          total_questions: questions.length,
-          score: totalScore,
-          percentage: Math.round((totalScore / questions.length) * 100),
-          is_passed: passed,
-        },
-      ]);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase.from('exam_attempts').insert([
+          {
+            user_id: user.id,
+            exam_type: selectedExam,
+            difficulty: selectedDifficulty,
+            total_questions: questions.length,
+            score: totalScore,
+            percentage: Math.round((totalScore / questions.length) * 100),
+            is_passed: passed,
+          },
+        ]);
+        if (error) {
+          console.error('Failed to save exam attempt in Supabase:', error.message);
+        } else {
+          console.log('Exam scorecard recorded successfully.');
+        }
+      } else {
+        console.log('Guest session completed. Scorecards are persisted for logged-in aspirants.');
+      }
+    } catch (err) {
+      console.error('Error logging exam attempt:', err);
     }
   };
 
@@ -226,7 +237,7 @@ export default function ExamHall() {
               <select
                 value={selectedExam}
                 onChange={(e) => setSelectedExam(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-blue-500 text-white"
               >
                 <option value="ALL">All Certifications Combined</option>
                 <option value="DRA">DRA (Debt Recovery Agent)</option>
@@ -325,6 +336,12 @@ export default function ExamHall() {
           >
             <RotateCcw className="w-4 h-4" /> Start New Test
           </button>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition"
+          >
+            View Dashboard Scorecards
+          </Link>
         </div>
 
         <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
