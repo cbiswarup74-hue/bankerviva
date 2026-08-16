@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { BookOpen, Mail, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
+import { BookOpen, Mail, Lock, ArrowLeft, CheckCircle, AlertTriangle } from 'lucide-react';
+import { getOrCreateDeviceId } from '@/lib/deviceFingerprint';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -11,6 +12,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -18,30 +20,59 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setMessage('');
+    setErrorMessage('');
+
+    const { deviceId, deviceName } = getOrCreateDeviceId();
 
     if (isSignUp) {
       const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) setMessage(error.message);
-      else {
-        setMessage('Registration successful! Signing you in...');
+      if (error) {
+        setErrorMessage(error.message);
+      } else if (data.user) {
+        setMessage('Registration successful! Setting up device lock...');
         const newSessionToken = crypto.randomUUID();
         localStorage.setItem('bankerviva_session_token', newSessionToken);
-        if (data.user) {
-          await supabase.from('user_profiles').upsert({
-            id: data.user.id,
-            email: data.user.email,
-            current_session_token: newSessionToken,
-            mock_credits_remaining: 20
-          });
-        }
-        router.push('/exam');
+
+        await supabase.from('user_profiles').upsert({
+          id: data.user.id,
+          email: data.user.email,
+          current_session_token: newSessionToken,
+          mock_credits_remaining: 20,
+          registered_devices: [
+            {
+              device_id: deviceId,
+              device_name: deviceName,
+              registered_at: new Date().toISOString()
+            }
+          ]
+        });
+
+        router.push('/dashboard');
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setMessage(error.message);
+        setErrorMessage(error.message);
       } else if (data.user) {
-        // Generate new session token and update profile
+        // Enforce max 2 registered devices limit
+        const { data: devCheck, error: devErr } = await supabase.rpc('register_or_verify_device', {
+          p_user_id: data.user.id,
+          p_device_id: deviceId,
+          p_device_name: deviceName
+        });
+
+        if (devErr) {
+          console.error(devErr);
+        }
+
+        if (devCheck && !devCheck.allowed) {
+          await supabase.auth.signOut();
+          setErrorMessage('Account locked to 2 registered devices. Contact support or use an authorized device.');
+          setLoading(false);
+          return;
+        }
+
+        // Generate session token
         const newSessionToken = crypto.randomUUID();
         localStorage.setItem('bankerviva_session_token', newSessionToken);
 
@@ -50,7 +81,7 @@ export default function AuthPage() {
           .update({ current_session_token: newSessionToken })
           .eq('id', data.user.id);
 
-        router.push('/exam');
+        router.push('/dashboard');
       }
     }
     setLoading(false);
@@ -71,12 +102,18 @@ export default function AuthPage() {
         <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6 shadow-2xl">
           <div>
             <h1 className="text-2xl font-black">{isSignUp ? 'Create Aspirant Account' : 'Sign In to BankerViva'}</h1>
-            <p className="text-xs text-slate-400 mt-1">Track mock exam performance, save scores, and access question banks.</p>
+            <p className="text-xs text-slate-400 mt-1">Single-user license restricted to max 2 personal devices.</p>
           </div>
 
           {message && (
             <div className="p-3 rounded-lg bg-blue-900/50 border border-blue-500 text-xs text-blue-200 flex items-center gap-2">
               <CheckCircle className="w-4 h-4 flex-shrink-0" /> {message}
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="p-3 rounded-lg bg-rose-950/50 border border-rose-600 text-xs text-rose-200 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {errorMessage}
             </div>
           )}
 
@@ -116,14 +153,18 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition"
             >
-              {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? 'Validating...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </button>
           </form>
 
           <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setErrorMessage('');
+                setMessage('');
+              }}
               className="text-xs text-blue-400 hover:underline"
             >
               {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}

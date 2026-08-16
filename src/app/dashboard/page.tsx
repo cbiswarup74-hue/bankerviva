@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, XCircle, Clock, ArrowLeft, LogOut, Play, Smartphone, Laptop } from 'lucide-react';
 
 interface ExamAttempt {
   id: string;
@@ -19,6 +19,7 @@ interface ExamAttempt {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -35,6 +36,18 @@ export default function DashboardPage() {
 
       setUser(user);
 
+      // Load profile info & registered devices
+      const { data: profData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profData) {
+        setProfile(profData);
+      }
+
+      // Load score history
       const { data, error } = await supabase
         .from('exam_attempts')
         .select('*')
@@ -70,6 +83,8 @@ export default function DashboardPage() {
       ? Math.round(attempts.reduce((acc, curr) => acc + Number(curr.percentage), 0) / totalExams)
       : 0;
 
+  const devices = profile?.registered_devices || [];
+
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none">
       {/* Header */}
@@ -96,7 +111,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 space-y-8">
-        {/* Profile / Hero Banner */}
+        {/* Profile Hero */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800 border border-slate-700 p-6 rounded-2xl">
           <div>
             <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Aspirant Profile</span>
@@ -124,6 +139,46 @@ export default function DashboardPage() {
           <div className="p-5 bg-slate-800 border border-slate-700 rounded-xl space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Average Aggregate Score</span>
             <div className="text-3xl font-black text-blue-400">{avgScore}%</div>
+          </div>
+        </div>
+
+        {/* Device Registration & Security Status */}
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Laptop className="w-5 h-5 text-blue-400" /> Authorized Device Slots ({devices.length} / 2)
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">To prevent group password sharing, accounts are locked to 2 personal devices.</p>
+            </div>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-blue-900/50 border border-blue-700 text-blue-300">
+              ANTI-SHARING ACTIVE
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {devices.map((d: any, idx: number) => (
+              <div key={idx} className="p-4 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-blue-400">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white">{d.device_name || 'Personal Device'}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">ID: {d.device_id.slice(0, 16)}...</div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Slot {idx + 1}
+                </span>
+              </div>
+            ))}
+
+            {Array.from({ length: Math.max(0, 2 - devices.length) }).map((_, i) => (
+              <div key={i} className="p-4 rounded-xl border border-dashed border-slate-700 bg-slate-900/30 flex items-center justify-center text-xs text-slate-500 font-medium">
+                Empty Device Slot {devices.length + i + 1}
+              </div>
+            ))}
           </div>
         </div>
 
