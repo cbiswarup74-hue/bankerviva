@@ -7,6 +7,19 @@ import nodemailer from 'nodemailer';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Plan Price Map for Accurate DB Telemetry Logging
+const PLAN_PRICE_MAP: Record<string, number> = {
+  BCBF: 399,
+  DRA: 499,
+  AML_KYC: 499,
+  JAIIB_IEIFS: 1499,
+  JAIIB: 1499,
+  CAIIB_ABM: 1499,
+  CAIIB: 1499,
+  CCP: 1499,
+  ALL_ACCESS: 2999,
+};
+
 export async function POST(req: Request) {
   try {
     const { 
@@ -75,7 +88,7 @@ export async function POST(req: Request) {
               <p><strong>Candidate Instructions:</strong></p>
               <ol>
                 <li>Give 1 distinct code to each candidate.</li>
-                <li>Ask candidate to register/sign in at <strong>https://bankerviva.vercel.app/auth</strong>.</li>
+                <li>Ask candidate to register/sign in at <strong>https://www.bankerviva.com/auth</strong>.</li>
                 <li>Enter the code in the <em>"Redeem Voucher"</em> box on their dashboard.</li>
               </ol>
             </div>
@@ -101,10 +114,17 @@ export async function POST(req: Request) {
       }
 
       if (targetUserId) {
-        const oneYearFromNow = new Date();
-        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+        // Calculate dynamic duration: 12 Months for ALL_ACCESS, 6 Months (180 days) for individual tracks
+        const isMasterPass = planId === 'ALL_ACCESS';
+        const validityDays = isMasterPass ? 365 : 180;
+        
+        const now = new Date();
+        const expiryDate = new Date();
+        expiryDate.setDate(now.getDate() + validityDays);
 
-        // Insert / Update the 'subscriptions' table so subscription.ts detects active status
+        const paidAmount = PLAN_PRICE_MAP[planId] || 399;
+
+        // Insert / Update the 'subscriptions' table
         await (supabase as any)
           .from('subscriptions')
           .upsert({
@@ -113,17 +133,22 @@ export async function POST(req: Request) {
             status: 'active',
             payment_id: razorpay_payment_id,
             order_id: razorpay_order_id,
-            expires_at: oneYearFromNow.toISOString(),
-            updated_at: new Date().toISOString()
+            expires_at: expiryDate.toISOString(),
+            updated_at: now.toISOString()
           }, { onConflict: 'user_id' });
 
-        // Update 'user_profiles' table for compatibility
+        // Update 'user_profiles' table for complete telemetry tracking
         await (supabase as any)
           .from('user_profiles')
           .update({
             is_subscriber: true,
-            plan_type: planId || 'pro',
-            updated_at: new Date().toISOString()
+            plan_type: 'pro',
+            enrolled_package: planId || 'BCBF',
+            payment_reference_id: razorpay_payment_id,
+            paid_amount: paidAmount,
+            subscription_start_date: now.toISOString(),
+            subscription_end_date: expiryDate.toISOString(),
+            updated_at: now.toISOString()
           })
           .eq('id', targetUserId);
       }
