@@ -41,6 +41,18 @@ interface AnalyticsData {
   subscribersList: SubscriberRecord[];
 }
 
+const PACKAGE_PRICING: Record<string, number> = {
+  BCBF: 399,
+  DRA: 499,
+  AML_KYC: 499,
+  JAIIB_IEIFS: 1499,
+  JAIIB: 1499,
+  CAIIB_ABM: 1499,
+  CAIIB: 1499,
+  CCP: 1499,
+  ALL_ACCESS: 2999,
+};
+
 export default function AdminAnalyticsPage() {
   const router = useRouter();
 
@@ -114,7 +126,14 @@ export default function AdminAnalyticsPage() {
 
       const subsList: SubscriberRecord[] = profiles || [];
       const payingSubscribers = subsList.filter((p) => p.plan_type === 'pro' || p.plan_type === 'institutional');
-      const totalRevenue = payingSubscribers.reduce((acc, curr) => acc + (curr.paid_amount || 1499), 0);
+
+      const totalRevenue = payingSubscribers.reduce((acc, curr) => {
+        if (curr.paid_amount && curr.paid_amount > 0) {
+          return acc + curr.paid_amount;
+        }
+        const pkg = curr.enrolled_package || '';
+        return acc + (PACKAGE_PRICING[pkg] || 399);
+      }, 0);
 
       setData({
         totalViews: totalViewsCount,
