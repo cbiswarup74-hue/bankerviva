@@ -254,15 +254,24 @@ export default function LandingPage() {
     }
   ];
 
-  // Handler for Individual Aspirant Purchases
+  // Handler for Individual Aspirant Purchases with Strict Authentication Interception
   const handleIndividualPayment = async (plan: any) => {
     try {
       setProcessingPlan(plan.examTrack);
-      const numericPrice = Number(plan.price.replace(/[^\d]/g, ''));
 
-      // Check current Supabase authenticated user
+      // 1. Check for Active User Session
       const { data: { user: activeUser } } = await supabase.auth.getUser();
 
+      if (!activeUser) {
+        // Enforce account registration/sign-in before payment
+        alert('Please create an account or sign in first to bind your test credits and device license.');
+        window.location.href = '/auth';
+        return;
+      }
+
+      const numericPrice = Number(plan.price.replace(/[^\d]/g, ''));
+
+      // 2. Initiate Razorpay Order with Authenticated User Context
       const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,9 +280,9 @@ export default function LandingPage() {
           amount: numericPrice,
           isInstitutional: false,
           seats: 1,
-          customerEmail: activeUser?.email || 'candidate@bankerviva.com',
-          customerName: activeUser?.user_metadata?.full_name || 'Aspirant',
-          userId: activeUser?.id,
+          customerEmail: activeUser.email,
+          customerName: activeUser.user_metadata?.full_name || activeUser.email?.split('@')[0] || 'Aspirant',
+          userId: activeUser.id,
         }),
       });
 
@@ -298,9 +307,9 @@ export default function LandingPage() {
               planId: plan.examTrack,
               isInstitutional: false,
               seatCount: 1,
-              customerEmail: activeUser?.email || 'candidate@bankerviva.com',
-              customerName: activeUser?.user_metadata?.full_name || 'Aspirant',
-              userId: activeUser?.id,
+              customerEmail: activeUser.email,
+              customerName: activeUser.user_metadata?.full_name || 'Aspirant',
+              userId: activeUser.id,
             }),
           });
           const verifyData = await verifyRes.json();
@@ -308,13 +317,13 @@ export default function LandingPage() {
             const destinationTrack = plan.examTrack === 'ALL_ACCESS' ? 'JAIIB_IEIFS' : plan.examTrack;
             window.location.href = `/cbt/briefing?paper=${destinationTrack}&set=1`;
           } else {
-            alert('Verification unsuccessful: ' + verifyData.message);
+            alert('Verification unsuccessful: ' + (verifyData.message || 'Error occurred'));
           }
         },
         prefill: {
-          name: activeUser?.user_metadata?.full_name || 'Aspirant',
-          email: activeUser?.email || 'aspirant@bankerviva.com',
-          contact: '9999999999',
+          name: activeUser.user_metadata?.full_name || '',
+          email: activeUser.email,
+          contact: activeUser.user_metadata?.phone || '',
         },
         theme: { color: '#2563eb' },
       };
@@ -336,6 +345,10 @@ export default function LandingPage() {
     try {
       setProcessingPlan(plan.examTrack);
 
+      const { data: { user: activeUser } } = await supabase.auth.getUser();
+      const billingEmail = activeUser?.email || prompt('Enter Official Coordinator Email for Voucher Delivery:') || 'agency@bankerviva.com';
+      const billingName = activeUser?.user_metadata?.full_name || 'Institutional Coordinator';
+
       const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -344,8 +357,9 @@ export default function LandingPage() {
           amount: totalAmount,
           isInstitutional: true,
           seats: seats,
-          customerEmail: 'agency@bank.com',
-          customerName: 'Institutional Partner',
+          customerEmail: billingEmail,
+          customerName: billingName,
+          userId: activeUser?.id || null,
         }),
       });
 
@@ -368,21 +382,22 @@ export default function LandingPage() {
               planId: plan.examTrack,
               isInstitutional: true,
               seatCount: seats,
-              customerEmail: 'agency@bank.com',
-              customerName: 'Institutional Partner',
+              customerEmail: billingEmail,
+              customerName: billingName,
+              userId: activeUser?.id || null,
             }),
           });
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
             alert(`Payment Approved! Successfully generated ${verifyData.vouchers?.length || seats} activation vouchers. Check your confirmation email.`);
           } else {
-            alert('Verification unsuccessful: ' + verifyData.message);
+            alert('Verification unsuccessful: ' + (verifyData.message || 'Error occurred'));
           }
         },
         prefill: {
-          name: 'Institutional Coordinator',
-          email: 'agency@bank.com',
-          contact: '9831064090',
+          name: billingName,
+          email: billingEmail,
+          contact: activeUser?.user_metadata?.phone || '',
         },
         theme: { color: '#2563eb' },
       };
