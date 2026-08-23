@@ -1,18 +1,40 @@
+export type Language = 'en' | 'hi';
+
+export type DifficultyLevel = 'easy' | 'moderate' | 'hard';
+
+export type OptionKey = 'A' | 'B' | 'C' | 'D';
+
 export interface Question {
-  id: string;
+  id: string | number;
   exam_type: string;
   module: string;
-  difficulty: 'easy' | 'moderate' | 'hard';
+  difficulty: DifficultyLevel | string;
+  cbt_set_number?: number;
+  
+  // English Fields
   question_text: string;
-  audio_script: string;
+  audio_script?: string;
   options: {
     A: string;
     B: string;
     C: string;
     D: string;
   };
-  correct_answer: 'A' | 'B' | 'C' | 'D';
   explanation: string;
+
+  // Hindi Bilingual Fields (Optional)
+  question_text_hi?: string;
+  audio_script_hi?: string;
+  options_hi?: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  explanation_hi?: string;
+
+  // Evaluation Keys
+  correct_answer: OptionKey | string;
 }
 
 export interface ExamAttemptLog {
@@ -24,9 +46,9 @@ export interface ExamAttemptLog {
   status: 'PASSED' | 'FAILED' | 'CONDITIONAL';
   time_spent_seconds: number;
   response_sheet: {
-    question_id: string;
-    selected_option: 'A' | 'B' | 'C' | 'D' | null;
-    correct_option: 'A' | 'B' | 'C' | 'D';
+    question_id: string | number;
+    selected_option: OptionKey | null;
+    correct_option: OptionKey | string;
     is_correct: boolean;
   }[];
 }

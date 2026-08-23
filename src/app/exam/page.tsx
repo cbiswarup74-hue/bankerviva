@@ -1,35 +1,119 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, Award, Play, RotateCcw, ArrowLeft } from 'lucide-react';
-import { Question } from '@/types/exam';
-import { speakVivaPrompt, stopSpeech } from '@/lib/speech';
+import React, { useState, useEffect, Suspense } from 'react';
+import { 
+  Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, 
+  Award, Play, RotateCcw, ArrowLeft, Lock, Sparkles, ShieldCheck, 
+  Target, Zap, BookOpen, BarChart2, Printer, Globe2, Layers, Loader2
+} from 'lucide-react';
+import { Question, Language, OptionKey } from '@/types/exam';
+import { stopSpeech } from '@/lib/speech';
 import { supabase } from '@/lib/supabaseClient';
+import { checkUserSubscription, SubscriptionStatus } from '@/lib/subscription';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function ExamHall() {
+function ExamHallContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Language state: English ('en') vs Hindi ('hi')
+  const [lang, setLang] = useState<Language>('hi');
+
+  // Subscription state
+  const [subStatus, setSubStatus] = useState<SubscriptionStatus>({
+    isLoggedIn: false,
+    isSubscriber: false,
+    planType: 'guest'
+  });
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
 
   // Configurator state
   const [inExam, setInExam] = useState(false);
-  const [selectedExam, setSelectedExam] = useState<string>('ALL');
+  const [selectedExam, setSelectedExam] = useState<string>('JAIIB_IEIFS');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
-  const [questionCount, setQuestionCount] = useState<number>(20);
-  const [durationMinutes, setDurationMinutes] = useState<number>(30);
+  const [sessionFormat, setSessionFormat] = useState<'demo' | 'sprint' | 'full'>('demo');
+  const [selectedCbtSet, setSelectedCbtSet] = useState<number>(1);
+  const [durationMinutes, setDurationMinutes] = useState<number>(60);
+  const [completedSets, setCompletedSets] = useState<number[]>([]);
 
   // Exam runtime state
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
-  const [responses, setResponses] = useState<Record<string, 'A' | 'B' | 'C' | 'D' | null>>({});
-  const [reviewFlags, setReviewFlags] = useState<Record<string, boolean>>({});
+  const [timeLeft, setTimeLeft] = useState(60 * 60);
+  const [responses, setResponses] = useState<Record<string | number, OptionKey | null>>({});
+  const [reviewFlags, setReviewFlags] = useState<Record<string | number, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Single Active Session Watchdog
+  // Read URL query parameters from Briefing Room
+  useEffect(() => {
+    const paperParam = searchParams.get('paper');
+    const setParam = searchParams.get('set');
+    const modeParam = searchParams.get('mode');
+
+    if (paperParam) setSelectedExam(paperParam);
+    if (setParam) setSelectedCbtSet(Number(setParam));
+    if (modeParam === 'full' || modeParam === 'demo' || modeParam === 'sprint') {
+      setSessionFormat(modeParam);
+      setDurationMinutes(modeParam === 'full' ? 120 : modeParam === 'sprint' ? 30 : 60);
+    }
+  }, [searchParams]);
+
+  // Load User Subscription Status
+  useEffect(() => {
+    async function verifyAccess() {
+      const status = await checkUserSubscription();
+      setSubStatus(status);
+      if (status.isSubscriber) {
+        setSessionFormat('full');
+        setDurationMinutes(120);
+      } else {
+        setSessionFormat('demo');
+        setDurationMinutes(60);
+      }
+    }
+    verifyAccess();
+  }, []);
+
+  // Load previously completed / locked sets
+  useEffect(() => {
+    const saved = localStorage.getItem(`bankerviva_completed_${selectedExam}`);
+    if (saved) {
+      try {
+        setCompletedSets(JSON.parse(saved));
+      } catch {
+        setCompletedSets([]);
+      }
+    } else {
+      setCompletedSets([]);
+    }
+  }, [selectedExam]);
+
+  const isTieredExam = selectedExam === 'DRA' || selectedExam === 'BCBF' || selectedExam === 'AML_KYC' || selectedExam === 'CCP';
+
+  const getAvailableCbtCount = (track: string) => {
+    if (track.startsWith('JAIIB_') || track.startsWith('CAIIB_')) return 10;
+    switch (track) {
+      case 'DRA': return 30;
+      case 'BCBF': return 20;
+      case 'AML_KYC': return 20;
+      case 'CCP': return 30;
+      default: return 10;
+    }
+  };
+
+  const totalCbtSets = getAvailableCbtCount(selectedExam);
+
+  useEffect(() => {
+    if (selectedCbtSet > totalCbtSets) {
+      setSelectedCbtSet(1);
+    }
+  }, [selectedExam, totalCbtSets, selectedCbtSet]);
+
+  // Single Active Session Watchdog (Safe Null Check)
   useEffect(() => {
     const sessionInterval = setInterval(async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -41,10 +125,10 @@ export default function ExamHall() {
           .eq('id', user.id)
           .single();
 
-        if (profile && localToken && profile.current_session_token !== localToken) {
+        if (profile?.current_session_token && localToken && profile.current_session_token !== localToken) {
           clearInterval(sessionInterval);
           stopSpeech();
-          alert('You have been logged out because this account was logged into from another browser or device.');
+          alert('Logged out: Active session detected on another device.');
           await supabase.auth.signOut();
           router.push('/auth');
         }
@@ -75,40 +159,35 @@ export default function ExamHall() {
     };
   }, []);
 
-  // Fetch Questions with Quota / Credit Deduction
+  // Fetch Questions with Hindi Translation Columns
   const startCustomExam = async () => {
+    if (sessionFormat !== 'demo' && !subStatus.isSubscriber) {
+      setShowPaywallModal(true);
+      return;
+    }
+
     setLoading(true);
 
-    // Check user mock credit balance if authenticated
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: creditRes, error: creditErr } = await supabase.rpc('deduct_mock_credit', {
-        p_user_id: user.id,
-      });
-
-      if (creditErr) {
-        console.error('Error verifying credit quota:', creditErr);
-      }
-
-      if (creditRes && !creditRes.success) {
-        alert('You have exhausted your mock test credits (0 remaining). Please recharge your subscription to take more exams.');
-        setLoading(false);
-        router.push('/dashboard');
-        return;
-      }
-    }
-
-    let query = supabase.from('questions').select('*');
-
-    if (selectedExam !== 'ALL') {
-      query = query.ilike('exam_type', `%${selectedExam}%`);
-    }
+    let query = supabase.from('questions').select('*').eq('exam_type', selectedExam);
 
     if (selectedDifficulty !== 'ALL') {
       query = query.eq('difficulty', selectedDifficulty.toLowerCase());
     }
 
-    const { data, error } = await query.limit(questionCount);
+    let targetCount = 100;
+
+    if (sessionFormat === 'demo') {
+      targetCount = 50;
+      query = query.eq('cbt_set_number', 1);
+    } else if (sessionFormat === 'full') {
+      targetCount = 100;
+      query = query.eq('cbt_set_number', selectedCbtSet);
+    } else if (sessionFormat === 'sprint') {
+      targetCount = 20;
+      query = query.eq('cbt_set_number', selectedCbtSet);
+    }
+
+    const { data, error } = await query.order('id', { ascending: true }).limit(targetCount);
 
     if (!error && data && data.length > 0) {
       const mapped: Question[] = data.map((row: any) => ({
@@ -116,16 +195,26 @@ export default function ExamHall() {
         exam_type: row.exam_type,
         module: row.module,
         difficulty: row.difficulty,
+        cbt_set_number: row.cbt_set_number,
         question_text: row.question_text,
+        question_text_hi: row.question_text_hi || undefined,
         audio_script: row.audio_script,
+        audio_script_hi: row.audio_script_hi || undefined,
         options: {
           A: row.option_a,
           B: row.option_b,
           C: row.option_c,
           D: row.option_d
         },
+        options_hi: row.option_a_hi ? {
+          A: row.option_a_hi,
+          B: row.option_b_hi,
+          C: row.option_c_hi,
+          D: row.option_d_hi
+        } : undefined,
         correct_answer: row.correct_option,
-        explanation: row.explanation
+        explanation: row.explanation,
+        explanation_hi: row.explanation_hi || undefined
       }));
 
       setQuestions(mapped);
@@ -136,20 +225,63 @@ export default function ExamHall() {
       setIsSubmitted(false);
       setInExam(true);
     } else {
-      alert('No questions found matching your selected criteria.');
+      alert(`No questions found matching your criteria for ${selectedExam}. Try selecting 'ALL' Difficulty.`);
     }
     setLoading(false);
+  };
+
+  // Exit Exam Navigation Handler
+  const handleExitExam = () => {
+    if (window.confirm('Are you sure you want to exit the examination? Your current progress will be lost.')) {
+      stopSpeech();
+      setInExam(false);
+      setIsSubmitted(false);
+      setQuestions([]);
+    }
+  };
+
+  // Clean Audio Scripts: Strips metadata tags
+  const cleanScriptText = (text: string) => {
+    if (!text) return '';
+    return text.replace(/^\[.*?\]\s*/, '').trim();
+  };
+
+  // Bilingual Speech Synthesizer
+  const triggerBilingualSpeech = (q: Question) => {
+    if (!q) return;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+
+    if (lang === 'hi') {
+      const rawText = q.audio_script_hi || q.question_text_hi || q.question_text || '';
+      const text = cleanScriptText(rawText);
+      const optA = q.options_hi?.A || q.options.A;
+      const optB = q.options_hi?.B || q.options.B;
+      const optC = q.options_hi?.C || q.options.C;
+      const optD = q.options_hi?.D || q.options.D;
+
+      const utterance = new SpeechSynthesisUtterance(`${text}. विकल्प ए: ${optA}. विकल्प बी: ${optB}. विकल्प सी: ${optC}. विकल्प डी: ${optD}`);
+      utterance.lang = 'hi-IN';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      const rawText = q.audio_script || q.question_text || '';
+      const text = cleanScriptText(rawText);
+      const utterance = new SpeechSynthesisUtterance(`${text}. Option A: ${q.options.A}. Option B: ${q.options.B}. Option C: ${q.options.C}. Option D: ${q.options.D}`);
+      utterance.lang = 'en-US';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   // Auto-Read Viva Speech
   useEffect(() => {
     if (autoRead && inExam && questions.length > 0 && !isSubmitted) {
       const q = questions[currentIndex];
-      if (q) {
-        speakVivaPrompt(`${q.audio_script}. Option A: ${q.options.A}. Option B: ${q.options.B}. Option C: ${q.options.C}. Option D: ${q.options.D}`);
-      }
+      if (q) triggerBilingualSpeech(q);
     }
-  }, [currentIndex, autoRead, inExam, questions, isSubmitted]);
+  }, [currentIndex, autoRead, inExam, questions, isSubmitted, lang]);
 
   // Countdown Timer
   useEffect(() => {
@@ -174,7 +306,7 @@ export default function ExamHall() {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSelect = (opt: 'A' | 'B' | 'C' | 'D') => {
+  const handleSelect = (opt: OptionKey) => {
     if (!questions[currentIndex]) return;
     const qId = questions[currentIndex].id;
     setResponses((prev) => ({ ...prev, [qId]: opt }));
@@ -194,17 +326,22 @@ export default function ExamHall() {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     }
 
+    if (sessionFormat === 'full') {
+      const updated = Array.from(new Set([...completedSets, selectedCbtSet]));
+      setCompletedSets(updated);
+      localStorage.setItem(`bankerviva_completed_${selectedExam}`, JSON.stringify(updated));
+    }
+
     const totalAllowedTime = durationMinutes * 60;
     const secondsSpent = Math.max(0, totalAllowedTime - timeLeft);
 
-    // Save attempt to Supabase
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { error } = await supabase.from('exam_attempts').insert([
+        await supabase.from('exam_attempts').insert([
           {
             user_id: user.id,
-            exam_type: selectedExam,
+            exam_type: `${selectedExam} ${sessionFormat === 'full' ? `(CBT #${selectedCbtSet})` : sessionFormat === 'sprint' ? `(Sprint #${selectedCbtSet})` : '(Demo)'}`,
             difficulty: selectedDifficulty,
             total_questions: questions.length,
             score: totalScore,
@@ -215,165 +352,522 @@ export default function ExamHall() {
             response_sheet: responses,
           },
         ]);
-        if (error) {
-          console.error('Failed to save exam attempt in Supabase:', error.message);
-        } else {
-          console.log('Exam scorecard recorded successfully.');
-        }
-      } else {
-        console.log('Guest session completed.');
       }
     } catch (err) {
-      console.error('Error logging exam attempt:', err);
+      console.error('Error logging score:', err);
     }
   };
 
   const getDifficultyBadge = (diff: string) => {
     switch (diff?.toLowerCase()) {
-      case 'easy':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      case 'hard':
-        return 'bg-rose-100 text-rose-800 border-rose-300';
-      default:
-        return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'easy': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      case 'hard': return 'bg-rose-100 text-rose-800 border-rose-300';
+      default: return 'bg-amber-100 text-amber-800 border-amber-300';
     }
   };
+
+  const handlePrint = () => {
+    if (typeof window !== 'undefined') window.print();
+  };
+
+  const generateAnalytics = () => {
+    const moduleStats: Record<string, { total: number; correct: number; hardTotal: number; hardCorrect: number; attempted: number }> = {};
+    let hardTotal = 0;
+    let hardCorrect = 0;
+    let modTotal = 0;
+    let modCorrect = 0;
+    let easyTotal = 0;
+    let easyCorrect = 0;
+    let attemptedCount = 0;
+
+    questions.forEach((q) => {
+      const userChoice = responses[q.id];
+      const isAttempted = !!userChoice;
+      const isCorrect = userChoice === q.correct_answer;
+      const mod = q.module || 'Core Banking Curriculum';
+
+      if (isAttempted) attemptedCount += 1;
+
+      if (!moduleStats[mod]) {
+        moduleStats[mod] = { total: 0, correct: 0, hardTotal: 0, hardCorrect: 0, attempted: 0 };
+      }
+
+      moduleStats[mod].total += 1;
+      if (isAttempted) moduleStats[mod].attempted += 1;
+      if (isCorrect) moduleStats[mod].correct += 1;
+
+      const diff = q.difficulty?.toLowerCase();
+      if (diff === 'hard') {
+        hardTotal += 1;
+        if (isCorrect) hardCorrect += 1;
+        moduleStats[mod].hardTotal += 1;
+        if (isCorrect) moduleStats[mod].hardCorrect += 1;
+      } else if (diff === 'easy') {
+        easyTotal += 1;
+        if (isCorrect) easyCorrect += 1;
+      } else {
+        modTotal += 1;
+        if (isCorrect) modCorrect += 1;
+      }
+    });
+
+    const weakModules = Object.entries(moduleStats)
+      .filter(([_, data]) => data.total > 0 && (data.correct / data.total) < 0.5)
+      .map(([mod]) => mod);
+
+    return {
+      moduleStats,
+      hardAccuracy: hardTotal > 0 ? Math.round((hardCorrect / hardTotal) * 100) : 0,
+      modAccuracy: modTotal > 0 ? Math.round((modCorrect / modTotal) * 100) : 0,
+      easyAccuracy: easyTotal > 0 ? Math.round((easyCorrect / easyTotal) * 100) : 0,
+      weakModules,
+      hardTotal,
+      hardCorrect,
+      modTotal,
+      modCorrect,
+      easyTotal,
+      easyCorrect,
+      attemptedCount
+    };
+  };
+
+  const isCurrentSetLocked = completedSets.includes(selectedCbtSet);
+
+  // Helper getters for active language
+  const currentQ = questions[currentIndex];
+  const activeQuestionText = currentQ ? (lang === 'hi' && currentQ.question_text_hi ? currentQ.question_text_hi : currentQ.question_text) : '';
+  const activeOptions = currentQ ? (lang === 'hi' && currentQ.options_hi ? currentQ.options_hi : currentQ.options) : { A: '', B: '', C: '', D: '' };
 
   // 1. PRE-TEST CONFIGURATOR VIEW
   if (!inExam) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none">
         <header className="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition">
-            <ArrowLeft className="w-4 h-4" /> Back to Home
-          </Link>
-          <span className="text-sm font-black text-blue-400">BankerViva Test Engine</span>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition">
+              <ArrowLeft className="w-4 h-4" /> Home
+            </Link>
+            <Link href={`/cbt/briefing?paper=${selectedExam}&set=${selectedCbtSet}`} className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-blue-300 transition">
+              <Layers className="w-4 h-4" /> Architecture Briefing
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Language Switcher */}
+            <div className="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+              <button
+                onClick={() => setLang('en')}
+                className={`px-2.5 py-1 text-xs font-bold rounded ${lang === 'en' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => setLang('hi')}
+                className={`px-2.5 py-1 text-xs font-bold rounded ${lang === 'hi' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                हिन्दी
+              </button>
+            </div>
+
+            {subStatus.isSubscriber ? (
+              <span className="flex items-center gap-1.5 text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700 px-3 py-1 rounded-full">
+                <ShieldCheck className="w-3.5 h-3.5" /> PRO Subscriber
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs font-bold bg-amber-950/80 text-amber-400 border border-amber-700 px-3 py-1 rounded-full">
+                Free Demo (50 Qs)
+              </span>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6 shadow-2xl">
+          <div className="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 space-y-6 shadow-2xl relative">
             <div>
-              <h1 className="text-2xl font-black">Configure Your Mock Exam</h1>
-              <p className="text-xs text-slate-400 mt-1">Select your syllabus target, session length, and difficulty level.</p>
+              <h1 className="text-2xl font-black">Configure Your Exam Session</h1>
+              <p className="text-xs text-slate-400 mt-1">Select your paper, CBT set, and practice format.</p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-slate-300">Certification Track</label>
+              <label className="text-xs font-bold uppercase text-slate-300">Certification Paper</label>
               <select
                 value={selectedExam}
                 onChange={(e) => setSelectedExam(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-blue-500 text-white"
               >
-                <option value="ALL">All Certifications Combined</option>
-                <option value="DRA">DRA (Debt Recovery Agent)</option>
-                <option value="JAIIB">JAIIB (All 4 Modules)</option>
-                <option value="CAIIB">CAIIB (All 3 Modules)</option>
-                <option value="AML_KYC">AML / KYC Compliance</option>
-                <option value="BCBF">BC / BF Financial Inclusion</option>
-                <option value="CCP">CCP (Credit Professional)</option>
+                <optgroup label="JAIIB Examination Papers">
+                  <option value="JAIIB_IEIFS">JAIIB: Paper 1 - Indian Economy & IFS (10 Sets)</option>
+                  <option value="JAIIB_PPB">JAIIB: Paper 2 - Principles & Practices of Banking (10 Sets)</option>
+                  <option value="JAIIB_AFM">JAIIB: Paper 3 - Accounting & Financial Management (10 Sets)</option>
+                  <option value="JAIIB_RBWM">JAIIB: Paper 4 - Retail Banking & Wealth Mgmt (10 Sets)</option>
+                </optgroup>
+
+                <optgroup label="CAIIB Examination Papers">
+                  <option value="CAIIB_ABM">CAIIB: Paper 1 - Advanced Bank Management (10 Sets)</option>
+                  <option value="CAIIB_BFM">CAIIB: Paper 2 - Bank Financial Management (10 Sets)</option>
+                  <option value="CAIIB_ABFM">CAIIB: Paper 3 - Adv Business & Financial Mgmt (10 Sets)</option>
+                  <option value="CAIIB_BRBL">CAIIB: Paper 4 - Banking Reg & Business Laws (10 Sets)</option>
+                </optgroup>
+
+                <optgroup label="Certificate Courses">
+                  <option value="DRA">DRA: Debt Recovery Agent (30 Full CBTs)</option>
+                  <option value="CCP">CCP: Certified Credit Professional (30 Full CBTs)</option>
+                  <option value="BCBF">BC / BF Financial Inclusion (20 Full CBTs)</option>
+                  <option value="AML_KYC">AML / KYC Compliance (20 Full CBTs)</option>
+                </optgroup>
               </select>
             </div>
 
+            {/* Difficulty Tier Selector */}
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-slate-300">Difficulty Tier</label>
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold uppercase text-slate-300">Difficulty Tier</label>
+                {!isTieredExam && (
+                  <span className="text-[10px] text-blue-400 font-medium">Auto-blended (75% Mod / 25% Hard)</span>
+                )}
+              </div>
               <div className="grid grid-cols-4 gap-2 text-xs font-bold">
                 {['ALL', 'EASY', 'MODERATE', 'HARD'].map((tier) => (
                   <button
                     key={tier}
                     type="button"
-                    onClick={() => setSelectedDifficulty(tier)}
-                    className={`py-2.5 rounded-lg border transition ${
+                    onClick={() => {
+                      if (!subStatus.isSubscriber && tier !== 'ALL') {
+                        setShowPaywallModal(true);
+                      } else {
+                        setSelectedDifficulty(tier);
+                      }
+                    }}
+                    className={`py-2.5 rounded-lg border transition flex items-center justify-center gap-1 ${
                       selectedDifficulty === tier
                         ? 'bg-blue-600 border-blue-500 text-white'
                         : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
                     }`}
                   >
+                    {!subStatus.isSubscriber && tier !== 'ALL' && <Lock className="w-3 h-3 text-amber-400" />}
                     {tier}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* Session Format */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-slate-300">Session Format</label>
               <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Sprint (20 Qs)', count: 20, mins: 30 },
-                  { label: 'Sectional (50 Qs)', count: 50, mins: 60 },
-                  { label: 'Full CBT (100 Qs)', count: 100, mins: 120 }
-                ].map((mode) => (
-                  <button
-                    key={mode.count}
-                    type="button"
-                    onClick={() => {
-                      setQuestionCount(mode.count);
-                      setDurationMinutes(mode.mins);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition ${
-                      questionCount === mode.count
-                        ? 'bg-blue-600/20 border-blue-500 text-white'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="text-xs font-bold">{mode.label}</div>
-                    <div className="text-[10px] text-slate-400 mt-1">{mode.mins} Minutes</div>
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSessionFormat('demo');
+                    setDurationMinutes(60);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition ${
+                    sessionFormat === 'demo'
+                      ? 'bg-blue-600/20 border-blue-500 text-white ring-1 ring-blue-500'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-emerald-400">Free Demo (50 Qs)</div>
+                  <div className="text-[10px] text-slate-400 mt-1">60 Mins • Diagnostic</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!subStatus.isSubscriber) {
+                      setShowPaywallModal(true);
+                    } else {
+                      setSessionFormat('sprint');
+                      setDurationMinutes(30);
+                    }
+                  }}
+                  className={`p-3 rounded-xl border text-left transition relative ${
+                    sessionFormat === 'sprint'
+                      ? 'bg-blue-600/20 border-blue-500 text-white ring-1 ring-blue-500'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  {!subStatus.isSubscriber && <Lock className="w-3 h-3 text-amber-400 absolute top-2 right-2" />}
+                  <div className="text-xs font-bold">Sprint (20 Qs)</div>
+                  <div className="text-[10px] text-slate-400 mt-1">30 Mins • Speed Drill</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!subStatus.isSubscriber) {
+                      setShowPaywallModal(true);
+                    } else {
+                      setSessionFormat('full');
+                      setDurationMinutes(120);
+                    }
+                  }}
+                  className={`p-3 rounded-xl border text-left transition relative ${
+                    sessionFormat === 'full'
+                      ? 'bg-blue-600/20 border-blue-500 text-white ring-1 ring-blue-500'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  {!subStatus.isSubscriber && <Lock className="w-3 h-3 text-amber-400 absolute top-2 right-2" />}
+                  <div className="text-xs font-bold">Full CBT (100 Qs)</div>
+                  <div className="text-[10px] text-slate-400 mt-1">120 Mins • Exam Hall</div>
+                </button>
               </div>
+            </div>
+
+            {/* CBT Mock Test Selector */}
+            {(sessionFormat === 'full' || sessionFormat === 'sprint') && (
+              <div className="space-y-2 pt-2 border-t border-slate-700">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold uppercase text-blue-400">Select Mock Test Paper</label>
+                  <span className="text-[10px] font-bold bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded border border-blue-700">
+                    {totalCbtSets} Sets Available
+                  </span>
+                </div>
+                <select
+                  value={selectedCbtSet}
+                  onChange={(e) => setSelectedCbtSet(Number(e.target.value))}
+                  className="w-full bg-slate-900 border border-blue-500/50 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-blue-400 text-white"
+                >
+                  {Array.from({ length: totalCbtSets }, (_, i) => i + 1).map((num) => {
+                    const isLocked = completedSets.includes(num);
+                    return (
+                      <option key={num} value={num}>
+                        {selectedExam} CBT #{num} {isLocked ? '(🔒 Attempted / Review Mode)' : '• Available'}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            {/* Submission Policy Notice */}
+            <div className="p-3 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Bilingual Mode Active:</strong> You can toggle between English and हिन्दी during the live examination at any moment.
+              </span>
             </div>
 
             <button
               onClick={startCustomExam}
               disabled={loading}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2"
             >
-              <Play className="w-4 h-4 fill-current" /> {loading ? 'Loading Questions...' : 'Start Examination'}
+              <Play className="w-4 h-4 fill-current" /> {loading ? 'Loading Paper...' : sessionFormat === 'demo' ? 'Start Free Diagnostic Demo (50 Qs)' : `Start CBT Set #${selectedCbtSet}`}
             </button>
           </div>
         </main>
+
+        {/* Paywall Modal (Redirects correctly to /#pricing) */}
+        {showPaywallModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-slate-800 border border-amber-500/30 rounded-3xl p-6 text-center space-y-5 shadow-2xl">
+              <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto">
+                <Lock className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Full CBTs are PRO Features</h3>
+                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                  Unlock all Full-Length CBT Mock Test Papers across all 12 certification tracks with bilingual support and AI Speech Viva.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowPaywallModal(false)}
+                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs rounded-xl"
+                >
+                  Stay on Demo
+                </button>
+                <Link
+                  href="/#pricing"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-lg"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 fill-current" /> Upgrade to Pro
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  const currentQ = questions[currentIndex];
   const score = questions.reduce((acc, q) => acc + (responses[q.id] === q.correct_answer ? 1 : 0), 0);
   const isPassed = questions.length > 0 && score / questions.length >= 0.5;
 
-  // 2. SUBMITTED REVIEW SHEET
+  // 2. SUBMITTED REVIEW SHEET & ANALYTICAL REPORT
   if (isSubmitted) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6 select-none no-copy font-sans">
-        <div className={`p-6 rounded-2xl text-white shadow-lg ${isPassed ? 'bg-emerald-700' : 'bg-rose-700'}`}>
-          <div className="flex items-center gap-3">
-            <Award className="w-8 h-8" />
-            <h1 className="text-3xl font-black">{isPassed ? 'QUALIFIED / PASSED' : 'NEEDS IMPROVEMENT'}</h1>
-          </div>
-          <p className="mt-3 text-lg font-medium">Final Score: {score} / {questions.length} ({Math.round((score / questions.length) * 100)}%)</p>
-          <p className="text-sm opacity-80">IIBF Qualifying Criterion: 50% Aggregate</p>
-        </div>
+    const analytics = generateAnalytics();
 
-        <div className="flex gap-4">
+    return (
+      <div className="max-w-5xl mx-auto p-6 space-y-8 select-none font-sans text-slate-900">
+        <style jsx global>{`
+          @media print {
+            body { background: #ffffff !important; color: #000000 !important; }
+            header, .no-print, nav, button { display: none !important; }
+            .print-card { border: 1px solid #cbd5e1 !important; background: #ffffff !important; color: #000000 !important; break-inside: avoid; margin-bottom: 12px !important; }
+          }
+        `}</style>
+
+        {/* Top Actions */}
+        <div className="flex justify-between items-center no-print">
           <button
             onClick={() => setInExam(false)}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition shadow-sm"
           >
-            <RotateCcw className="w-4 h-4" /> Start New Test
+            <RotateCcw className="w-4 h-4" /> Exit to Configurator
           </button>
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition"
-          >
-            View Dashboard Scorecards
-          </Link>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm"
+            >
+              <Printer className="w-4 h-4" /> Print / Save PDF Scorecard
+            </button>
+          </div>
         </div>
 
-        <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
-        <div className="space-y-4">
+        {/* Master Performance Banner */}
+        <div className={`p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden print-card ${
+          isPassed ? 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900 border border-emerald-500/40' : 'bg-gradient-to-br from-rose-700 via-rose-900 to-slate-900 border border-rose-500/40'
+        }`}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl backdrop-blur-md">
+                  <Award className="w-8 h-8 text-amber-300" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/80">Diagnostic Scorecard</span>
+                  <h1 className="text-3xl font-black">{isPassed ? 'QUALIFIED / EXAM READY' : 'REVISION REQUIRED'}</h1>
+                </div>
+              </div>
+              <p className="mt-4 text-base font-medium text-white/90">
+                Final Score: <strong className="text-white text-2xl font-black">{score} / {questions.length}</strong> ({Math.round((score / questions.length) * 100)}%)
+              </p>
+              <p className="text-xs text-white/70 mt-0.5">Official Passing Threshold: 50% Aggregate</p>
+            </div>
+
+            <div className="bg-black/30 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 text-right space-y-1 min-w-[200px]">
+              <span className="text-[11px] font-bold text-white/60 uppercase tracking-widest block">Evaluated Track</span>
+              <div className="text-sm font-extrabold text-blue-300">{selectedExam}</div>
+              <div className="text-xs text-white/80">
+                {sessionFormat === 'full' ? `CBT Paper Set #${selectedCbtSet}` : sessionFormat === 'sprint' ? `Sprint Drill #${selectedCbtSet}` : '50-Q Diagnostic Demo'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cognitive Rigor Breakdown */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 print-card">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-blue-600" />
+                <h3 className="text-xs font-bold uppercase text-slate-500">Core Conceptual Tier</h3>
+              </div>
+              <span className="text-sm font-black text-blue-600">{analytics.modAccuracy}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+              <div className="bg-blue-600 h-full rounded-full transition-all" style={{ width: `${analytics.modAccuracy}%` }}></div>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Direct statutory provisions and regulatory limits ({analytics.modCorrect}/{analytics.modTotal} Qs).
+            </p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 print-card">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-purple-600" />
+                <h3 className="text-xs font-bold uppercase text-slate-500">Analytical & Numerical</h3>
+              </div>
+              <span className="text-sm font-black text-purple-600">{analytics.hardAccuracy}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+              <div className="bg-purple-600 h-full rounded-full transition-all" style={{ width: `${analytics.hardAccuracy}%` }}></div>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Calculation-heavy and case dilemma items ({analytics.hardCorrect}/{analytics.hardTotal} Qs).
+            </p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 print-card">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-xs font-bold uppercase text-slate-500">Attempt Coverage</h3>
+              </div>
+              <span className="text-sm font-black text-emerald-600">
+                {Math.round((analytics.attemptedCount / questions.length) * 100)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-600 h-full rounded-full transition-all" style={{ width: `${Math.round((analytics.attemptedCount / questions.length) * 100)}%` }}></div>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Answered {analytics.attemptedCount} of {questions.length} questions.
+            </p>
+          </div>
+        </div>
+
+        {/* Module Competency Heatmap */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 print-card">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-blue-600" /> Module-Wise Competency Breakdown
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">Standard Benchmarks: 60%+ Proficient • &lt;45% Critical</span>
+          </div>
+
+          <div className="space-y-4">
+            {Object.entries(analytics.moduleStats).map(([modName, stats]) => {
+              const pct = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+              const isProficient = pct >= 60;
+              const isCritical = pct < 45;
+
+              return (
+                <div key={modName} className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-800 text-sm">{modName}</span>
+                    <div className="flex items-center gap-3">
+                      {stats.hardTotal > 0 && (
+                        <span className="text-[11px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded font-semibold">
+                          Hard: {stats.hardCorrect}/{stats.hardTotal}
+                        </span>
+                      )}
+                      <span className={`text-sm ${isProficient ? 'text-emerald-600' : isCritical ? 'text-rose-600' : 'text-amber-600'}`}>
+                        {stats.correct}/{stats.total} ({pct}%)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${isProficient ? 'bg-emerald-500' : isCritical ? 'bg-rose-500' : 'bg-amber-500'}`} 
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Detailed Review Sheet */}
+        <div className="space-y-4 pt-4">
+          <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
             const userChoice = responses[q.id];
             const isCorrect = userChoice === q.correct_answer;
+            const qText = lang === 'hi' && q.question_text_hi ? q.question_text_hi : q.question_text;
+            const qOpts = lang === 'hi' && q.options_hi ? q.options_hi : q.options;
+            const qExpl = lang === 'hi' && q.explanation_hi ? q.explanation_hi : q.explanation;
+
             return (
-              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3">
+              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 print-card">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                   <div className="flex items-center gap-2">
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 font-bold uppercase">{q.exam_type}</span>
@@ -381,27 +875,27 @@ export default function ExamHall() {
                     <span className="text-slate-500">Q{idx + 1} • {q.module}</span>
                   </div>
                   {isCorrect ? (
-                    <span className="text-emerald-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
+                    <span className="text-emerald-600 flex items-center gap-1 font-bold"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
                   ) : (
-                    <span className="text-rose-600 flex items-center gap-1"><XCircle className="w-4 h-4" /> {userChoice ? 'Incorrect (0)' : 'Unattempted (0)'}</span>
+                    <span className="text-rose-600 flex items-center gap-1 font-bold"><XCircle className="w-4 h-4" /> {userChoice ? 'Incorrect (0)' : 'Unattempted (0)'}</span>
                   )}
                 </div>
-                <p className="font-semibold text-slate-900">{q.question_text}</p>
+                <p className="font-semibold text-slate-900">{qText}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  {Object.entries(q.options).map(([k, v]) => {
+                  {Object.entries(qOpts).map(([k, v]) => {
                     let optStyle = 'border-slate-200 bg-slate-50 text-slate-700';
-                    if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold';
+                    if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-400';
                     if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50 text-rose-900 line-through';
                     return (
                       <div key={k} className={`p-3 rounded-lg border ${optStyle}`}>
-                        <span className="mr-2">{k}.</span> {v}
+                        <span className="mr-2 font-bold">{k}.</span> {v}
                       </div>
                     );
                   })}
                 </div>
                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div><strong>Statutory Explanation:</strong> {q.explanation}</div>
+                  <div><strong>Statutory Explanation:</strong> {qExpl}</div>
                 </div>
               </div>
             );
@@ -411,16 +905,49 @@ export default function ExamHall() {
     );
   }
 
-  // 3. LIVE EXAMINATION ARENA
+  // 3. LIVE EXAMINATION ARENA WITH BILINGUAL SWITCHER & DUAL NAVIGATION
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none no-copy">
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none">
       <header className="bg-slate-900 text-white px-6 py-4 flex flex-wrap justify-between items-center gap-4 shadow-md">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight">BankerViva • IIBF CBT Simulation</h1>
-          <p className="text-xs text-slate-400">{selectedExam} Track | {selectedDifficulty} Tier | {questions.length} Questions</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExitExam}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-rose-900/80 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-700 transition"
+            title="Exit to exam setup"
+          >
+            <ArrowLeft className="w-4 h-4" /> Exit
+          </button>
+          <Link
+            href={`/cbt/briefing?paper=${selectedExam}&set=${selectedCbtSet}`}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 transition"
+          >
+            <Layers className="w-3.5 h-3.5" /> Briefing
+          </Link>
+          <div>
+            <h1 className="text-sm sm:text-base font-black tracking-tight">BankerViva • Practice CBT Simulation Hall</h1>
+            <p className="text-[11px] text-slate-400">
+              {selectedExam} {sessionFormat === 'full' ? `• CBT #${selectedCbtSet}` : sessionFormat === 'sprint' ? `• Sprint #${selectedCbtSet}` : '• Demo'} | {selectedDifficulty} Tier | {questions.length} Questions
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Live In-Exam Language Toggle */}
+          <div className="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <button
+              onClick={() => setLang('en')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${lang === 'en' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}
+            >
+              English
+            </button>
+            <button
+              onClick={() => setLang('hi')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${lang === 'hi' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'}`}
+            >
+              हिन्दी
+            </button>
+          </div>
+
           <button
             onClick={() => {
               if (autoRead) stopSpeech();
@@ -450,35 +977,31 @@ export default function ExamHall() {
                   Question {currentIndex + 1} of {questions.length}
                 </span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border">
-                  {currentQ.exam_type}
+                  {currentQ?.exam_type}
                 </span>
-                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getDifficultyBadge(currentQ.difficulty)}`}>
-                  {currentQ.difficulty}
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getDifficultyBadge(currentQ?.difficulty)}`}>
+                  {currentQ?.difficulty}
                 </span>
               </div>
 
               <button
-                onClick={() =>
-                  speakVivaPrompt(
-                    `${currentQ.audio_script}. Option A: ${currentQ.options.A}. Option B: ${currentQ.options.B}. Option C: ${currentQ.options.C}. Option D: ${currentQ.options.D}`
-                  )
-                }
+                onClick={() => currentQ && triggerBilingualSpeech(currentQ)}
                 className="flex items-center gap-1.5 text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border font-medium text-slate-700"
               >
-                <Volume2 className="w-4 h-4 text-blue-600" /> Read Aloud
+                <Volume2 className="w-4 h-4 text-blue-600" /> Read Aloud ({lang === 'hi' ? 'हिन्दी' : 'English'})
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mt-3 font-medium uppercase tracking-wider">{currentQ.module}</p>
+            <p className="text-xs text-slate-500 mt-3 font-medium uppercase tracking-wider">{currentQ?.module}</p>
             <p className="text-base font-semibold text-slate-900 mt-2 leading-relaxed">
-              {currentQ.question_text}
+              {activeQuestionText}
             </p>
 
             <div className="mt-6 space-y-3">
-              {Object.entries(currentQ.options).map(([key, value]) => (
+              {currentQ && Object.entries(activeOptions).map(([key, value]) => (
                 <button
                   key={key}
-                  onClick={() => handleSelect(key as 'A' | 'B' | 'C' | 'D')}
+                  onClick={() => handleSelect(key as OptionKey)}
                   className={`w-full text-left p-4 rounded-xl border text-sm transition-all ${
                     responses[currentQ.id] === key
                       ? 'border-blue-600 bg-blue-50 text-blue-950 font-bold ring-2 ring-blue-500'
@@ -493,12 +1016,12 @@ export default function ExamHall() {
 
           <div className="flex justify-between items-center pt-6 border-t mt-6">
             <button
-              onClick={() => setReviewFlags((prev) => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }))}
+              onClick={() => currentQ && setReviewFlags((prev) => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }))}
               className={`px-4 py-2 text-xs font-semibold rounded-lg border ${
-                reviewFlags[currentQ.id] ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 border-purple-200'
+                currentQ && reviewFlags[currentQ.id] ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 border-purple-200'
               }`}
             >
-              {reviewFlags[currentQ.id] ? 'Marked for Review' : 'Mark for Review'}
+              {currentQ && reviewFlags[currentQ.id] ? 'Marked for Review' : 'Mark for Review'}
             </button>
             <div className="flex gap-2">
               <button
@@ -527,6 +1050,7 @@ export default function ExamHall() {
           </div>
         </section>
 
+        {/* Question Palette */}
         <aside className="bg-white rounded-2xl shadow-sm border p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-800 mb-4">Question Palette ({questions.length})</h2>
@@ -560,5 +1084,18 @@ export default function ExamHall() {
         </aside>
       </main>
     </div>
+  );
+}
+
+export default function ExamHall() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <span className="text-xs font-bold text-slate-400">Entering Examination Hall...</span>
+      </div>
+    }>
+      <ExamHallContent />
+    </Suspense>
   );
 }
