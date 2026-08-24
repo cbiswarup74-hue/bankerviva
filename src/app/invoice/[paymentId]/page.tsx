@@ -181,7 +181,7 @@ export default function InvoiceReceiptPage() {
         {/* Statutory Legal & Non-Affiliation Footnote */}
         <div className="border-t border-slate-200 pt-6 space-y-2 text-[10px] text-slate-400 leading-relaxed">
           <p>
-            <strong>Statutory Terms:</strong> This is a computer-generated tax and payment acknowledgement receipt and does not require a physical signature. All digital access keys and test simulator sets are governed by BankerViva single-user licensing terms.
+            <strong>Statutory Terms:</strong> This is a computer-generated commercial payment acknowledgement receipt (Exempt from GST under Section 22 of the CGST Act, 2017). All digital access keys and test simulator sets are governed by BankerViva licensing terms.
           </p>
           <p>
             © 2026 BankerViva. All rights reserved. Registered examination marks belong to their respective statutory bodies.
