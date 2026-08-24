@@ -39,6 +39,7 @@ export default function LandingPage() {
     BCBF: 25,
     DRA: 25,
     AML_KYC: 10,
+    CCP: 10,
     JAIIB_IEIFS: 10,
   });
 
@@ -224,17 +225,33 @@ export default function LandingPage() {
       ],
     },
     {
-      title: 'Specialized (AML/KYC & CCP)',
+      title: 'AML / KYC Compliance Desk',
       examTrack: 'AML_KYC',
-      unitPrice: 449,
+      unitPrice: 299,
       minSeats: 10,
       duration: '6 Months',
       badge: 'Compliance Desk',
       features: [
-        'Full 5,000 Question Bank Access (50 CBTs)',
-        'FIU-IND PMLA Reporting & Credit Models',
-        'Batch Activation Codes for Officers',
-        'Corporate Verification Support'
+        'Instant 16-Character Activation Vouchers',
+        'Full 2,000 Bilingual Question Bank (20 CBTs)',
+        'FIU-IND, PMLA Reporting & KYC Drills',
+        'Diagnostic Performance Evaluation Reports',
+        'Official Invoicing for Compliance Desks'
+      ],
+    },
+    {
+      title: 'Certified Credit Professional (CCP)',
+      examTrack: 'CCP',
+      unitPrice: 799,
+      minSeats: 10,
+      duration: '6 Months',
+      badge: 'Credit Specialist',
+      features: [
+        'Instant 16-Character Activation Vouchers',
+        'Full 3,000 Question Bank (30 Full CBTs)',
+        'Working Capital, MPBF & CMA Case Models',
+        'Diagnostic Performance Evaluation Reports',
+        'Official Invoicing for Bank Credit Hubs'
       ],
     },
     {
@@ -263,7 +280,6 @@ export default function LandingPage() {
       const { data: { user: activeUser } } = await supabase.auth.getUser();
 
       if (!activeUser) {
-        // Enforce account registration/sign-in before payment
         alert('Please create an account or sign in first to bind your test credits and device license.');
         window.location.href = '/auth';
         return;
@@ -730,7 +746,7 @@ export default function LandingPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 max-w-7xl mx-auto pt-2">
             {institutionalPlans.map((plan, idx) => {
               const currentSeats = institutionalSeats[plan.examTrack] || plan.minSeats;
               const totalCost = currentSeats * plan.unitPrice;
