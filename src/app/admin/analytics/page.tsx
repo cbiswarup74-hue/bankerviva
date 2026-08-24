@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, IndianRupee, Activity, Eye, ShieldCheck, 
   ArrowLeft, RefreshCw, BarChart2, Award, Calendar, TrendingUp,
-  Search, Mail, Download, Clock
+  Search, Mail, Download, Clock, Receipt
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -393,12 +393,13 @@ export default function AdminAnalyticsPage() {
                 <th className="p-3.5">Valid Till</th>
                 <th className="p-3.5">Plan Tier</th>
                 <th className="p-3.5">Device Session</th>
+                <th className="p-3.5 text-center">Invoice / Receipt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredSubscribers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-slate-500 font-medium">
+                  <td colSpan={9} className="p-6 text-center text-slate-500 font-medium">
                     No matching candidate subscriber records found.
                   </td>
                 </tr>
@@ -463,6 +464,21 @@ export default function AdminAnalyticsPage() {
                         <span className="font-mono text-[10px] bg-slate-100 px-2.5 py-1 rounded border border-slate-200 text-slate-700">
                           {sub.current_session_token ? '● Single Active' : 'Offline'}
                         </span>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        {sub.payment_reference_id ? (
+                          <Link
+                            href={`/invoice/${sub.payment_reference_id}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-[11px] shadow-2xs transition"
+                            title="Open printable tax invoice receipt"
+                          >
+                            <Receipt className="w-3 h-3 text-blue-600" />
+                            <span>Invoice</span>
+                          </Link>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Demo / N/A</span>
+                        )}
                       </td>
                     </tr>
                   );
