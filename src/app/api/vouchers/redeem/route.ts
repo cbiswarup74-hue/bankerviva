@@ -43,10 +43,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to update voucher status.' }, { status: 500 });
     }
 
-    // 4. Calculate dynamic duration based on track (60 days for DRA)
+    // 4. Calculate dynamic duration based on track (45 days for DRA)
     const isDRA = voucher.exam_track === 'DRA';
     const isMasterPass = voucher.exam_track === 'ALL_ACCESS';
-    const validityDays = isDRA ? 60 : isMasterPass ? 365 : 180;
+    const validityDays = isDRA ? 45 : isMasterPass ? 365 : 180;
 
     const now = new Date();
     const expiry = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
