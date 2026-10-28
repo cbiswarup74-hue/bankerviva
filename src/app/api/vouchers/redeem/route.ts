@@ -43,10 +43,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to update voucher status.' }, { status: 500 });
     }
 
-    // 4. Update the candidate profile record
-    const now = new Date();
-    const expiry = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000); // 6 Months
+    // 4. Calculate dynamic duration based on track (60 days for DRA)
+    const isDRA = voucher.exam_track === 'DRA';
+    const isMasterPass = voucher.exam_track === 'ALL_ACCESS';
+    const validityDays = isDRA ? 60 : isMasterPass ? 365 : 180;
 
+    const now = new Date();
+    const expiry = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
+
+    // 5. Update the candidate profile record
     const { error: updateProfileErr } = await supabase
       .from('user_profiles')
       .update({
