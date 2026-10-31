@@ -371,45 +371,50 @@ function ExamHallContent() {
   };
 
   const handlePrint = async () => {
-    const element = document.getElementById('printable-review-sheet');
-    if (!element) return;
+    // Select all individual printable cards instead of one gigantic element
+    const cards = document.querySelectorAll('.print-card');
+    if (!cards || cards.length === 0) {
+      if (typeof window !== 'undefined') window.print();
+      return;
+    }
 
     setIsExportingPdf(true);
 
     try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - margin * 2;
+      let currentY = margin;
 
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      for (let i = 0; i < cards.length; i++) {
+        const card = cards[i] as HTMLElement;
 
-      let heightLeft = imgHeight;
-      let position = 0;
+        const canvas = await html2canvas(card, {
+          scale: 1.5, // Crisp resolution without memory overflow
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
 
-      // Add first page
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pdfHeight;
+        const imgData = canvas.toDataURL('image/jpeg', 0.90);
+        const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
-      // Add subsequent pages if the review spans multiple pages
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pdfHeight;
+        // If card does not fit on the current page, add a new page
+        if (currentY + imgHeight > pageHeight - margin) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, imgHeight, undefined, 'FAST');
+        currentY += imgHeight + 6; // Spacing between cards
       }
 
       pdf.save(`${selectedExam}_CBT${selectedCbtSet}_Scorecard.pdf`);
     } catch (error) {
-      console.error('Error generating protected PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error('Raster PDF export error, falling back to printer dialog:', error);
+      if (typeof window !== 'undefined') window.print();
     } finally {
       setIsExportingPdf(false);
     }
@@ -965,7 +970,7 @@ function ExamHallContent() {
         </div>
 
         {/* Detailed Review Sheet */}
-        <div id="printable-review-sheet" className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
+        <div className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
           <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
             // Strictly resolve user choice safely across number vs string keys
