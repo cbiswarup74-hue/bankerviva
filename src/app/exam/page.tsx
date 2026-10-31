@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { 
   Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, 
   Award, Play, RotateCcw, ArrowLeft, Lock, Sparkles, ShieldCheck, 
@@ -13,6 +13,64 @@ import { checkUserSubscription, SubscriptionStatus } from '@/lib/subscription';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+
+// Component that renders text as a non-extractable, uncopyable Canvas graphic
+function ProtectedText({ text, className = '', fontSize = 14, fontWeight = 'normal', color = '#0f172a' }: { text: string; className?: string; fontSize?: number; fontWeight?: string; color?: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !text) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 2;
+    const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 700;
+    const maxW = parentWidth > 50 ? parentWidth : 700;
+
+    ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
+
+    // Word wrap logic
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxW - 20 && i > 0) {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+
+    const lineHeight = fontSize * 1.45;
+    const totalHeight = Math.max(lines.length * lineHeight + 8, fontSize + 8);
+
+    canvas.width = maxW * dpr;
+    canvas.height = totalHeight * dpr;
+    canvas.style.width = `${maxW}px`;
+    canvas.style.height = `${totalHeight}px`;
+
+    ctx.scale(dpr, dpr);
+    ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'top';
+
+    lines.forEach((line, index) => {
+      ctx.fillText(line, 0, index * lineHeight + 4);
+    });
+  }, [text, fontSize, fontWeight, color]);
+
+  return (
+    <div className={`overflow-hidden select-none pointer-events-none ${className}`}>
+      <canvas ref={canvasRef} className="block select-none" />
+    </div>
+  );
+}
 
 function ExamHallContent() {
   const router = useRouter();
@@ -710,7 +768,6 @@ function ExamHallContent() {
     return (
       <div className="max-w-5xl mx-auto p-6 space-y-8 select-none font-sans text-slate-900 relative">
         <style jsx global>{`
-          /* Universal Screen and Print Anti-Selection & Copy Shield */
           .secure-shield,
           .secure-shield * {
             -webkit-user-select: none !important;
@@ -723,13 +780,10 @@ function ExamHallContent() {
             body { 
               background: #ffffff !important; 
               color: #000000 !important; 
-              -webkit-user-select: none !important;
-              user-select: none !important;
             }
             header, .no-print, nav, button { 
               display: none !important; 
             }
-
             .print-card { 
               border: 1px solid #cbd5e1 !important; 
               background: #ffffff !important; 
@@ -738,34 +792,10 @@ function ExamHallContent() {
               margin-bottom: 12px !important;
               position: relative !important;
             }
-
-            /* 1. Converts regular font text to outline stroke paths in PDF stream */
-            .print-card p,
-            .print-card div,
-            .print-card span {
-              -webkit-text-stroke: 0.35px currentColor;
-              -webkit-user-select: none !important;
-              user-select: none !important;
+            canvas {
+              display: block !important;
+              max-width: 100% !important;
             }
-
-            /* 2. Top-level transparent shield overlay intercepting Acrobat and AI selection */
-            .print-card::before {
-              content: "CONFIDENTIAL PRACTICE PAPER • PROTECTED BY BANKERVIVA • UNAUTHORIZED EXTRACTION PROHIBITED • ";
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              font-size: 8pt;
-              color: transparent !important;
-              background: transparent !important;
-              z-index: 99999;
-              overflow: hidden;
-              pointer-events: auto !important;
-              -webkit-user-select: text !important;
-              user-select: text !important;
-            }
-
             .print-watermark {
               display: block !important;
               position: fixed;
@@ -785,7 +815,6 @@ function ExamHallContent() {
               );
             }
           }
-
           @media screen {
             .print-watermark { display: none; }
           }
@@ -943,7 +972,6 @@ function ExamHallContent() {
         <div className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
           <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
-            // Strictly resolve user choice safely across number vs string keys
             const rawChoice = responses[q.id] !== undefined ? responses[q.id] : responses[String(q.id)];
             const isAttempted = Boolean(rawChoice);
             const userChoice = isAttempted ? rawChoice : null;
@@ -970,33 +998,33 @@ function ExamHallContent() {
                     <span className="text-slate-500 flex items-center gap-1 font-bold"><Lock className="w-3.5 h-3.5 text-slate-400" /> Unattempted (0)</span>
                   )}
                 </div>
-                <p className="font-semibold text-slate-900 select-none">{qText}</p>
+
+                {/* Question Text rendered directly to Canvas graphic */}
+                <ProtectedText text={qText || ''} fontSize={15} fontWeight="600" color="#0f172a" />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm select-none">
                   {Object.entries(qOpts).map(([k, v]) => {
-                    let optStyle = 'border-slate-200 bg-slate-50 text-slate-700';
+                    let optStyle = 'border-slate-200 bg-slate-50';
 
                     if (isAttempted) {
-                      // Reveal correct option and mark wrong selections ONLY for attempted questions
-                      if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-400';
-                      if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50 text-rose-900 line-through';
+                      if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400';
+                      if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50';
                     } else {
-                      // Strictly keep all options in neutral unselected style if unattempted
-                      optStyle = 'border-slate-200 bg-white text-slate-700';
+                      optStyle = 'border-slate-200 bg-white';
                     }
 
                     return (
                       <div key={k} className={`p-3 rounded-lg border select-none ${optStyle}`}>
-                        <span className="mr-2 font-bold">{k}.</span> {v}
+                        <ProtectedText text={`${k}. ${v}`} fontSize={13} fontWeight="500" color="#334155" />
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* Statutory Explanation: Shown ONLY if attempted */}
+                {/* Statutory Explanation: Shown ONLY if attempted, rendered to Canvas graphic */}
                 {isAttempted ? (
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2 select-none">
-                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div><strong>Statutory Explanation:</strong> {qExpl}</div>
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 select-none">
+                    <ProtectedText text={`Statutory Explanation: ${qExpl}`} fontSize={12} fontWeight="400" color="#78350f" />
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-start gap-2 select-none">
