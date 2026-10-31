@@ -702,14 +702,51 @@ function ExamHallContent() {
     const analytics = generateAnalytics();
 
     return (
-      <div className="max-w-5xl mx-auto p-6 space-y-8 select-none font-sans text-slate-900">
+      <div className="max-w-5xl mx-auto p-6 space-y-8 select-none font-sans text-slate-900 relative">
         <style jsx global>{`
           @media print {
-            body { background: #ffffff !important; color: #000000 !important; }
+            body { 
+              background: #ffffff !important; 
+              color: #000000 !important; 
+              -webkit-user-select: none !important;
+              user-select: none !important;
+            }
             header, .no-print, nav, button { display: none !important; }
-            .print-card { border: 1px solid #cbd5e1 !important; background: #ffffff !important; color: #000000 !important; break-inside: avoid; margin-bottom: 12px !important; }
+            .print-card { 
+              border: 1px solid #cbd5e1 !important; 
+              background: #ffffff !important; 
+              color: #000000 !important; 
+              break-inside: avoid; 
+              margin-bottom: 12px !important;
+              -webkit-user-select: none !important;
+              user-select: none !important;
+            }
+            .print-watermark {
+              display: block !important;
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              opacity: 0.06;
+              pointer-events: none;
+              z-index: 9999;
+              background-image: repeating-linear-gradient(
+                -45deg,
+                #000000 0px,
+                #000000 2px,
+                transparent 2px,
+                transparent 120px
+              );
+            }
+          }
+          @media screen {
+            .print-watermark { display: none; }
           }
         `}</style>
+
+        {/* Dynamic Non-Selectable Print Watermark Layer */}
+        <div className="print-watermark pointer-events-none select-none" aria-hidden="true" />
 
         {/* Top Actions */}
         <div className="flex justify-between items-center no-print">
@@ -857,46 +894,68 @@ function ExamHallContent() {
         </div>
 
         {/* Detailed Review Sheet */}
-        <div className="space-y-4 pt-4">
+        <div className="space-y-4 pt-4 select-none">
           <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
             const userChoice = responses[q.id];
-            const isCorrect = userChoice === q.correct_answer;
+            const isAttempted = !!userChoice;
+            const isCorrect = isAttempted && userChoice === q.correct_answer;
             const qText = lang === 'hi' && q.question_text_hi ? q.question_text_hi : q.question_text;
             const qOpts = lang === 'hi' && q.options_hi ? q.options_hi : q.options;
             const qExpl = lang === 'hi' && q.explanation_hi ? q.explanation_hi : q.explanation;
 
             return (
-              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 print-card">
+              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 print-card select-none">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                   <div className="flex items-center gap-2">
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 font-bold uppercase">{q.exam_type}</span>
                     <span className={`px-2 py-0.5 rounded border uppercase text-[10px] font-bold ${getDifficultyBadge(q.difficulty)}`}>{q.difficulty}</span>
                     <span className="text-slate-500">Q{idx + 1} • {q.module}</span>
                   </div>
-                  {isCorrect ? (
-                    <span className="text-emerald-600 flex items-center gap-1 font-bold"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
+                  {isAttempted ? (
+                    isCorrect ? (
+                      <span className="text-emerald-600 flex items-center gap-1 font-bold"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
+                    ) : (
+                      <span className="text-rose-600 flex items-center gap-1 font-bold"><XCircle className="w-4 h-4" /> Incorrect (0)</span>
+                    )
                   ) : (
-                    <span className="text-rose-600 flex items-center gap-1 font-bold"><XCircle className="w-4 h-4" /> {userChoice ? 'Incorrect (0)' : 'Unattempted (0)'}</span>
+                    <span className="text-slate-500 flex items-center gap-1 font-bold"><Lock className="w-3.5 h-3.5 text-slate-400" /> Unattempted (Answer Hidden)</span>
                   )}
                 </div>
-                <p className="font-semibold text-slate-900">{qText}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <p className="font-semibold text-slate-900 select-none">{qText}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm select-none">
                   {Object.entries(qOpts).map(([k, v]) => {
                     let optStyle = 'border-slate-200 bg-slate-50 text-slate-700';
-                    if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-400';
-                    if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50 text-rose-900 line-through';
+
+                    if (isAttempted) {
+                      // Reveal correct option and mark wrong selections only for attempted questions
+                      if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-400';
+                      if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50 text-rose-900 line-through';
+                    } else {
+                      // Keep neutral if unattempted - correct answer is not disclosed
+                      optStyle = 'border-slate-200 bg-slate-50/70 text-slate-500';
+                    }
+
                     return (
-                      <div key={k} className={`p-3 rounded-lg border ${optStyle}`}>
+                      <div key={k} className={`p-3 rounded-lg border select-none ${optStyle}`}>
                         <span className="mr-2 font-bold">{k}.</span> {v}
                       </div>
                     );
                   })}
                 </div>
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div><strong>Statutory Explanation:</strong> {qExpl}</div>
-                </div>
+                
+                {/* Statutory Explanation: Shown ONLY if attempted */}
+                {isAttempted ? (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2 select-none">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div><strong>Statutory Explanation:</strong> {qExpl}</div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-start gap-2 select-none">
+                    <Lock className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
+                    <div><strong>Statutory Explanation:</strong> Correct answer and statutory explanation are locked. You must actively attempt the question during the test to unlock review rationales.</div>
+                  </div>
+                )}
               </div>
             );
           })}
