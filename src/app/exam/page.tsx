@@ -13,8 +13,6 @@ import { checkUserSubscription, SubscriptionStatus } from '@/lib/subscription';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 function ExamHallContent() {
   const router = useRouter();
@@ -49,7 +47,6 @@ function ExamHallContent() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Read URL query parameters from Briefing Room
   useEffect(() => {
@@ -370,53 +367,9 @@ function ExamHallContent() {
     }
   };
 
-  const handlePrint = async () => {
-    // Select all individual printable cards instead of one gigantic element
-    const cards = document.querySelectorAll('.print-card');
-    if (!cards || cards.length === 0) {
-      if (typeof window !== 'undefined') window.print();
-      return;
-    }
-
-    setIsExportingPdf(true);
-
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pageWidth - margin * 2;
-      let currentY = margin;
-
-      for (let i = 0; i < cards.length; i++) {
-        const card = cards[i] as HTMLElement;
-
-        const canvas = await html2canvas(card, {
-          scale: 1.5, // Crisp resolution without memory overflow
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        });
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.90);
-        const imgHeight = (canvas.height * contentWidth) / canvas.width;
-
-        // If card does not fit on the current page, add a new page
-        if (currentY + imgHeight > pageHeight - margin) {
-          pdf.addPage();
-          currentY = margin;
-        }
-
-        pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, imgHeight, undefined, 'FAST');
-        currentY += imgHeight + 6; // Spacing between cards
-      }
-
-      pdf.save(`${selectedExam}_CBT${selectedCbtSet}_Scorecard.pdf`);
-    } catch (error) {
-      console.error('Raster PDF export error, falling back to printer dialog:', error);
-      if (typeof window !== 'undefined') window.print();
-    } finally {
-      setIsExportingPdf(false);
+  const handlePrint = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
     }
   };
 
@@ -773,7 +726,10 @@ function ExamHallContent() {
               -webkit-user-select: none !important;
               user-select: none !important;
             }
-            header, .no-print, nav, button { display: none !important; }
+            header, .no-print, nav, button { 
+              display: none !important; 
+            }
+
             .print-card { 
               border: 1px solid #cbd5e1 !important; 
               background: #ffffff !important; 
@@ -781,21 +737,35 @@ function ExamHallContent() {
               break-inside: avoid; 
               margin-bottom: 12px !important;
               position: relative !important;
+            }
+
+            /* 1. Converts regular font text to outline stroke paths in PDF stream */
+            .print-card p,
+            .print-card div,
+            .print-card span {
+              -webkit-text-stroke: 0.35px currentColor;
               -webkit-user-select: none !important;
               user-select: none !important;
             }
-            /* Transparent full-card shielding overlay in PDF export */
-            .print-card::after {
-              content: "";
+
+            /* 2. Top-level transparent shield overlay intercepting Acrobat and AI selection */
+            .print-card::before {
+              content: "CONFIDENTIAL PRACTICE PAPER • PROTECTED BY BANKERVIVA • UNAUTHORIZED EXTRACTION PROHIBITED • ";
               position: absolute;
               top: 0;
               left: 0;
-              right: 0;
-              bottom: 0;
-              z-index: 1000;
-              background: transparent;
-              pointer-events: auto;
+              width: 100%;
+              height: 100%;
+              font-size: 8pt;
+              color: transparent !important;
+              background: transparent !important;
+              z-index: 99999;
+              overflow: hidden;
+              pointer-events: auto !important;
+              -webkit-user-select: text !important;
+              user-select: text !important;
             }
+
             .print-watermark {
               display: block !important;
               position: fixed;
@@ -803,7 +773,7 @@ function ExamHallContent() {
               left: 0;
               width: 100%;
               height: 100%;
-              opacity: 0.06;
+              opacity: 0.05;
               pointer-events: none;
               z-index: 9999;
               background-image: repeating-linear-gradient(
@@ -815,6 +785,7 @@ function ExamHallContent() {
               );
             }
           }
+
           @media screen {
             .print-watermark { display: none; }
           }
@@ -835,10 +806,9 @@ function ExamHallContent() {
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              disabled={isExportingPdf}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm"
             >
-              <Printer className="w-4 h-4" /> {isExportingPdf ? 'Securing & Generating PDF...' : 'Print / Save PDF Scorecard'}
+              <Printer className="w-4 h-4" /> Print / Save PDF Scorecard
             </button>
           </div>
         </div>
