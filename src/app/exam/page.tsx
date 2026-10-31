@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { 
   Volume2, VolumeX, CheckCircle, XCircle, AlertCircle, Clock, 
   Award, Play, RotateCcw, ArrowLeft, Lock, Sparkles, ShieldCheck, 
@@ -13,64 +13,6 @@ import { checkUserSubscription, SubscriptionStatus } from '@/lib/subscription';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-
-// Component that renders text as a non-extractable, uncopyable Canvas graphic
-function ProtectedText({ text, className = '', fontSize = 14, fontWeight = 'normal', color = '#0f172a' }: { text: string; className?: string; fontSize?: number; fontWeight?: string; color?: string }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !text) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 2;
-    const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 700;
-    const maxW = parentWidth > 50 ? parentWidth : 700;
-
-    ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
-
-    // Word wrap logic
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let currentLine = '';
-
-    for (let i = 0; i < words.length; i++) {
-      const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxW - 20 && i > 0) {
-        lines.push(currentLine);
-        currentLine = words[i];
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
-
-    const lineHeight = fontSize * 1.45;
-    const totalHeight = Math.max(lines.length * lineHeight + 8, fontSize + 8);
-
-    canvas.width = maxW * dpr;
-    canvas.height = totalHeight * dpr;
-    canvas.style.width = `${maxW}px`;
-    canvas.style.height = `${totalHeight}px`;
-
-    ctx.scale(dpr, dpr);
-    ctx.font = `${fontWeight} ${fontSize}px system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = color;
-    ctx.textBaseline = 'top';
-
-    lines.forEach((line, index) => {
-      ctx.fillText(line, 0, index * lineHeight + 4);
-    });
-  }, [text, fontSize, fontWeight, color]);
-
-  return (
-    <div className={`overflow-hidden select-none pointer-events-none ${className}`}>
-      <canvas ref={canvasRef} className="block select-none" />
-    </div>
-  );
-}
 
 function ExamHallContent() {
   const router = useRouter();
@@ -196,11 +138,11 @@ function ExamHallContent() {
     return () => clearInterval(sessionInterval);
   }, [router]);
 
-  // Anti-cheating & copy protection
+  // Anti-cheating & copy protection on screen
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey && ['c', 'u', 's', 'p'].includes(e.key.toLowerCase())) || e.key === 'F12') {
+      if ((e.ctrlKey && ['c', 'u', 's'].includes(e.key.toLowerCase())) || e.key === 'F12') {
         e.preventDefault();
       }
     };
@@ -768,6 +710,7 @@ function ExamHallContent() {
     return (
       <div className="max-w-5xl mx-auto p-6 space-y-8 select-none font-sans text-slate-900 relative">
         <style jsx global>{`
+          /* Universal Screen Selection Block */
           .secure-shield,
           .secure-shield * {
             -webkit-user-select: none !important;
@@ -784,6 +727,8 @@ function ExamHallContent() {
             header, .no-print, nav, button { 
               display: none !important; 
             }
+            
+            /* PDF Print includes the Master Diagnostic Scorecard & Analytics */
             .print-card { 
               border: 1px solid #cbd5e1 !important; 
               background: #ffffff !important; 
@@ -792,10 +737,25 @@ function ExamHallContent() {
               margin-bottom: 12px !important;
               position: relative !important;
             }
-            canvas {
-              display: block !important;
-              max-width: 100% !important;
+
+            /* SECURITY PROTOCOL: Question bank & explanations are web-only */
+            .web-only-questions {
+              display: none !important;
             }
+
+            /* Notice printed on the exported PDF */
+            .pdf-scorecard-notice {
+              display: block !important;
+              padding: 16px;
+              border: 1px dashed #94a3b8;
+              border-radius: 12px;
+              background-color: #f8fafc;
+              text-align: center;
+              font-size: 11px;
+              color: #475569;
+              margin-top: 20px;
+            }
+
             .print-watermark {
               display: block !important;
               position: fixed;
@@ -816,7 +776,10 @@ function ExamHallContent() {
             }
           }
           @media screen {
-            .print-watermark { display: none; }
+            .print-watermark,
+            .pdf-scorecard-notice { 
+              display: none; 
+            }
           }
         `}</style>
 
@@ -842,7 +805,7 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Master Performance Banner */}
+        {/* Master Performance Banner (Included in PDF) */}
         <div className={`p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden print-card ${
           isPassed ? 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900 border border-emerald-500/40' : 'bg-gradient-to-br from-rose-700 via-rose-900 to-slate-900 border border-rose-500/40'
         }`}>
@@ -873,7 +836,7 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Cognitive Rigor Breakdown */}
+        {/* Cognitive Rigor Breakdown (Included in PDF) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 print-card">
             <div className="flex justify-between items-center">
@@ -926,7 +889,7 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Module Competency Heatmap */}
+        {/* Module Competency Heatmap (Included in PDF) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 print-card">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
@@ -968,8 +931,16 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Detailed Review Sheet */}
-        <div className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
+        {/* Notice rendered only inside the exported PDF Scorecard */}
+        <div className="pdf-scorecard-notice">
+          <strong>Official BankerViva Diagnostic Scorecard</strong>
+          <p className="mt-1">
+            Question items and full statutory rationales are reserved for active review within the verified online portal. Log in to <span className="font-semibold text-blue-600">bankerviva.com</span> to re-enter your review hall.
+          </p>
+        </div>
+
+        {/* Detailed Review Sheet (Clean, Crisp Typography; Web-Only Review Hall) */}
+        <div className="space-y-4 pt-4 secure-shield select-none bg-white p-4 web-only-questions">
           <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
             const rawChoice = responses[q.id] !== undefined ? responses[q.id] : responses[String(q.id)];
@@ -981,7 +952,7 @@ function ExamHallContent() {
             const qExpl = lang === 'hi' && q.explanation_hi ? q.explanation_hi : q.explanation;
 
             return (
-              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 print-card secure-shield select-none">
+              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 secure-shield select-none">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                   <div className="flex items-center gap-2">
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 font-bold uppercase">{q.exam_type}</span>
@@ -999,32 +970,32 @@ function ExamHallContent() {
                   )}
                 </div>
 
-                {/* Question Text rendered directly to Canvas graphic */}
-                <ProtectedText text={qText || ''} fontSize={15} fontWeight="600" color="#0f172a" />
+                <p className="font-semibold text-slate-900 leading-relaxed text-sm sm:text-base select-none">{qText}</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm select-none">
                   {Object.entries(qOpts).map(([k, v]) => {
-                    let optStyle = 'border-slate-200 bg-slate-50';
+                    let optStyle = 'border-slate-200 bg-slate-50 text-slate-700';
 
                     if (isAttempted) {
-                      if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400';
-                      if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50';
+                      if (k === q.correct_answer) optStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-1 ring-emerald-400';
+                      if (k === userChoice && !isCorrect) optStyle = 'border-rose-300 bg-rose-50 text-rose-900 line-through';
                     } else {
-                      optStyle = 'border-slate-200 bg-white';
+                      optStyle = 'border-slate-200 bg-white text-slate-700';
                     }
 
                     return (
                       <div key={k} className={`p-3 rounded-lg border select-none ${optStyle}`}>
-                        <ProtectedText text={`${k}. ${v}`} fontSize={13} fontWeight="500" color="#334155" />
+                        <span className="mr-2 font-bold">{k}.</span> {v}
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* Statutory Explanation: Shown ONLY if attempted, rendered to Canvas graphic */}
+                {/* Statutory Explanation: Shown ONLY if attempted */}
                 {isAttempted ? (
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 select-none">
-                    <ProtectedText text={`Statutory Explanation: ${qExpl}`} fontSize={12} fontWeight="400" color="#78350f" />
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2 select-none">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div><strong>Statutory Explanation:</strong> {qExpl}</div>
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-start gap-2 select-none">
