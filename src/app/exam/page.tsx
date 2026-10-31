@@ -728,7 +728,7 @@ function ExamHallContent() {
               display: none !important; 
             }
             
-            /* Print every card with clean page breaking */
+            /* Print Cards Formatting */
             .print-card { 
               border: 1px solid #cbd5e1 !important; 
               background: #ffffff !important; 
@@ -738,32 +738,20 @@ function ExamHallContent() {
               position: relative !important;
             }
 
-            /* 
-              THE PDF EXTRACTION BLOCK:
-              1. Forces the font glyph stream to rasterize via an SVG vector mask filter.
-              2. Blocks mouse text selection and AI prompt scraping inside Acrobat.
-            */
-            .secure-print-text {
-              position: relative !important;
-              display: block !important;
-              color: #0f172a !important;
-              filter: contrast(105%) !important;
-              -webkit-user-select: none !important;
-              user-select: none !important;
+            /* HIDE the question statements and option choices during print */
+            .hide-in-pdf-export {
+              display: none !important;
             }
 
-            /* Intercepting high-priority text barrier for Chromium PDF engine */
-            .secure-print-text::before {
-              content: attr(data-content);
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              height: 100%;
-              color: transparent !important;
-              pointer-events: none;
-              user-select: none !important;
-              z-index: 10;
+            /* SHOW the diagnostic itemized rationale rows cleanly in PDF */
+            .pdf-item-card {
+              display: block !important;
+              border: 1px solid #e2e8f0 !important;
+              background-color: #ffffff !important;
+              padding: 12px !important;
+              border-radius: 8px !important;
+              margin-bottom: 10px !important;
+              break-inside: avoid !important;
             }
 
             .print-watermark {
@@ -810,12 +798,12 @@ function ExamHallContent() {
               onClick={handlePrint}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm"
             >
-              <Printer className="w-4 h-4" /> Print / Save PDF Scorecard
+              <Printer className="w-4 h-4" /> Print / Save PDF Performance Scorecard
             </button>
           </div>
         </div>
 
-        {/* Master Performance Banner */}
+        {/* Master Performance Banner (Included in PDF) */}
         <div className={`p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden print-card ${
           isPassed ? 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900 border border-emerald-500/40' : 'bg-gradient-to-br from-rose-700 via-rose-900 to-slate-900 border border-rose-500/40'
         }`}>
@@ -846,7 +834,7 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Cognitive Rigor Breakdown */}
+        {/* Cognitive Rigor Breakdown (Included in PDF) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 print-card">
             <div className="flex justify-between items-center">
@@ -899,7 +887,7 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Module Competency Heatmap */}
+        {/* Module Competency Heatmap (Included in PDF) */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 print-card">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
@@ -941,9 +929,13 @@ function ExamHallContent() {
           </div>
         </div>
 
-        {/* Detailed Review Sheet: Fully rendered in both Web & All-Pages Print */}
+        {/* Itemized Diagnostic Rationale Section (Prints: Q#, Remark Badge & Explanation) */}
         <div className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
-          <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
+          <div className="pb-2 border-b">
+            <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Itemized diagnostic remarks and regulatory references.</p>
+          </div>
+
           {questions.map((q, idx) => {
             const rawChoice = responses[q.id] !== undefined ? responses[q.id] : responses[String(q.id)];
             const isAttempted = Boolean(rawChoice);
@@ -954,33 +946,43 @@ function ExamHallContent() {
             const qExpl = lang === 'hi' && q.explanation_hi ? q.explanation_hi : q.explanation;
 
             return (
-              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 print-card secure-shield select-none">
+              <div key={q.id} className="p-5 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 secure-shield select-none pdf-item-card">
+                {/* 1. Header Line: Q Number, Module, and Remark (Prints in PDF & shows on screen) */}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                   <div className="flex items-center gap-2">
+                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded font-black text-xs">Question #{idx + 1}</span>
                     <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300 font-bold uppercase">{q.exam_type}</span>
                     <span className={`px-2 py-0.5 rounded border uppercase text-[10px] font-bold ${getDifficultyBadge(q.difficulty)}`}>{q.difficulty}</span>
-                    <span className="text-slate-500">Q{idx + 1} • {q.module}</span>
+                    <span className="text-slate-500 font-medium">{q.module}</span>
                   </div>
+
+                  {/* Remark Badge: Wrong or Right */}
                   {isAttempted ? (
                     isCorrect ? (
-                      <span className="text-emerald-600 flex items-center gap-1 font-bold"><CheckCircle className="w-4 h-4" /> Correct (+1)</span>
+                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-md flex items-center gap-1 font-black text-xs">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" /> Result: Correct (+1)
+                      </span>
                     ) : (
-                      <span className="text-rose-600 flex items-center gap-1 font-bold"><XCircle className="w-4 h-4" /> Incorrect (0)</span>
+                      <span className="text-rose-700 bg-rose-50 border border-rose-300 px-2.5 py-1 rounded-md flex items-center gap-1 font-black text-xs">
+                        <XCircle className="w-4 h-4 text-rose-600" /> Result: Incorrect (0)
+                      </span>
                     )
                   ) : (
-                    <span className="text-slate-500 flex items-center gap-1 font-bold"><Lock className="w-3.5 h-3.5 text-slate-400" /> Unattempted (0)</span>
+                    <span className="text-slate-600 bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-md flex items-center gap-1 font-bold text-xs">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" /> Result: Unattempted (0)
+                    </span>
                   )}
                 </div>
 
-                {/* Natural, crisp typography with copy-protection attributes */}
-                <p 
-                  data-content={qText} 
-                  className="font-semibold text-slate-900 leading-relaxed text-sm sm:text-base secure-print-text"
-                >
-                  {qText}
-                </p>
+                {/* 2. The Question Text: Visible on SCREEN ONLY, completely omitted from printed PDF */}
+                <div className="hide-in-pdf-export">
+                  <p className="font-semibold text-slate-900 leading-relaxed text-sm sm:text-base select-none mt-1">
+                    {qText}
+                  </p>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm select-none">
+                {/* 3. The Options: Visible on SCREEN ONLY, completely omitted from printed PDF */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm select-none hide-in-pdf-export">
                   {Object.entries(qOpts).map(([k, v]) => {
                     let optStyle = 'border-slate-200 bg-slate-50 text-slate-700';
 
@@ -993,31 +995,26 @@ function ExamHallContent() {
 
                     return (
                       <div key={k} className={`p-3 rounded-lg border select-none ${optStyle}`}>
-                        <span className="font-bold mr-2">{k}.</span>
-                        <span data-content={v} className="secure-print-text inline">
-                          {v}
-                        </span>
+                        <span className="mr-2 font-bold">{k}.</span> {v}
                       </div>
                     );
                   })}
                 </div>
                 
-                {/* Statutory Explanation: Shown ONLY if attempted */}
+                {/* 4. Statutory Explanation: Printed in PDF & shown on screen (locked if unattempted) */}
                 {isAttempted ? (
                   <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 flex items-start gap-2 select-none">
-                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-700" />
                     <div>
-                      <strong>Statutory Explanation:</strong>{' '}
-                      <span data-content={qExpl} className="secure-print-text inline">
-                        {qExpl}
-                      </span>
+                      <strong className="text-amber-950 font-bold">Statutory Explanation & Regulatory Rationale:</strong>{' '}
+                      <span className="leading-relaxed">{qExpl}</span>
                     </div>
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-start gap-2 select-none">
                     <Lock className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
                     <div>
-                      <strong>Statutory Explanation:</strong> Correct answer and statutory explanation are locked. You must actively attempt the question during the test to unlock review rationales.
+                      <strong className="text-slate-700">Statutory Explanation:</strong> Correct answer and statutory explanation are locked. You must actively attempt the question during the test to unlock review rationales.
                     </div>
                   </div>
                 )}
