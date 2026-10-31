@@ -383,7 +383,7 @@ function ExamHallContent() {
 
     questions.forEach((q) => {
       const userChoice = responses[q.id] ?? responses[String(q.id)];
-      const isAttempted = userChoice !== null && userChoice !== undefined && userChoice !== '';
+      const isAttempted = Boolean(userChoice);
       const isCorrect = isAttempted && userChoice === q.correct_answer;
       const mod = q.module || 'Core Banking Curriculum';
 
@@ -925,7 +925,7 @@ function ExamHallContent() {
           {questions.map((q, idx) => {
             // Strictly resolve user choice safely across number vs string keys
             const rawChoice = responses[q.id] !== undefined ? responses[q.id] : responses[String(q.id)];
-            const isAttempted = rawChoice !== null && rawChoice !== undefined && rawChoice !== '';
+            const isAttempted = Boolean(rawChoice);
             const userChoice = isAttempted ? rawChoice : null;
             const isCorrect = isAttempted && userChoice === q.correct_answer;
             const qText = lang === 'hi' && q.question_text_hi ? q.question_text_hi : q.question_text;
