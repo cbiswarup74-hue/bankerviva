@@ -13,6 +13,8 @@ import { checkUserSubscription, SubscriptionStatus } from '@/lib/subscription';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 function ExamHallContent() {
   const router = useRouter();
@@ -47,6 +49,7 @@ function ExamHallContent() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Read URL query parameters from Briefing Room
   useEffect(() => {
@@ -367,8 +370,49 @@ function ExamHallContent() {
     }
   };
 
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') window.print();
+  const handlePrint = async () => {
+    const element = document.getElementById('printable-review-sheet');
+    if (!element) return;
+
+    setIsExportingPdf(true);
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
+
+      // Add subsequent pages if the review spans multiple pages
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`${selectedExam}_CBT${selectedCbtSet}_Scorecard.pdf`);
+    } catch (error) {
+      console.error('Error generating protected PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const generateAnalytics = () => {
@@ -786,9 +830,10 @@ function ExamHallContent() {
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm"
+              disabled={isExportingPdf}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-500 transition shadow-sm disabled:opacity-50"
             >
-              <Printer className="w-4 h-4" /> Print / Save PDF Scorecard
+              <Printer className="w-4 h-4" /> {isExportingPdf ? 'Securing & Generating PDF...' : 'Print / Save PDF Scorecard'}
             </button>
           </div>
         </div>
@@ -920,7 +965,7 @@ function ExamHallContent() {
         </div>
 
         {/* Detailed Review Sheet */}
-        <div className="space-y-4 pt-4 secure-shield select-none">
+        <div id="printable-review-sheet" className="space-y-4 pt-4 secure-shield select-none bg-white p-4">
           <h2 className="text-2xl font-bold text-slate-800">Review Answer Sheet & Statutory Rationales</h2>
           {questions.map((q, idx) => {
             // Strictly resolve user choice safely across number vs string keys
